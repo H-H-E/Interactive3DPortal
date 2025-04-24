@@ -6,13 +6,14 @@ import { Controls } from "../hooks/useControls";
 import { PORTAL_INTERACTION_DISTANCE } from "../lib/constants";
 import { usePortals } from "../lib/stores/usePortals";
 import { useIsMobile } from "../hooks/use-is-mobile";
+import { CharacterModel } from "./CharacterModel";
 
 // Character properties
 const CHARACTER_SPEED = 5;
 const CHARACTER_TURN_SPEED = 2.5;
 const CHARACTER_HEIGHT = 1.8;
-const CAMERA_DISTANCE = 5;
-const CAMERA_HEIGHT = 3;
+const CAMERA_DISTANCE = 8;  // Increased to see more of the character
+const CAMERA_HEIGHT = 4;    // Increased for a better view with the new model
 const MOUSE_SENSITIVITY = 0.007;
 const MOUSE_SMOOTHING = 0.1;
 
@@ -211,44 +212,46 @@ export function PlayerController() {
   
   return (
     <group ref={characterRef} name="character">
-      {/* Character model here */}
-      <mesh position={[0, CHARACTER_HEIGHT / 2, 0]} castShadow>
-        <capsuleGeometry args={[0.4, CHARACTER_HEIGHT - 0.8, 8, 16]} />
-        <meshStandardMaterial 
-          color={isNearPortal ? "#42b4f4" : "#4285f4"} 
-          emissive={isNearPortal ? "#42b4f4" : "#000000"}
-          emissiveIntensity={isNearPortal ? 0.3 : 0}
-        />
-      </mesh>
+      {/* 3D Character model */}
+      <CharacterModel 
+        castShadow 
+        receiveShadow
+        // The model should face the negative Z direction by default
+        rotation={[0, Math.PI, 0]}
+      />
       
-      {/* Character eyes for direction reference */}
-      <mesh position={[0, CHARACTER_HEIGHT - 0.3, 0.35]} castShadow>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshStandardMaterial color="white" />
-      </mesh>
-      
-      <mesh position={[0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshStandardMaterial color="black" />
-      </mesh>
-      
-      <mesh position={[-0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshStandardMaterial color="black" />
+      {/* Direction indicator - forward arrow */}
+      <mesh 
+        position={[0, 0.1, -0.6]} 
+        rotation={[Math.PI / 2, 0, 0]} 
+        scale={[0.2, 0.3, 0.1]}
+        visible={false} // Hidden direction indicator, useful for debugging
+      >
+        <coneGeometry args={[1, 2, 8]} />
+        <meshStandardMaterial color="yellow" />
       </mesh>
       
       {/* Interaction indicator when near portal */}
       {isNearPortal && (
-        <mesh position={[0, CHARACTER_HEIGHT + 0.5, 0]}>
-          <sphereGeometry args={[0.15, 8, 8]} />
-          <meshStandardMaterial
-            color="#ffffff"
-            emissive="#ffffff"
-            emissiveIntensity={0.8}
-            transparent
-            opacity={0.8}
+        <group position={[0, CHARACTER_HEIGHT + 0.5, 0]}>
+          <mesh>
+            <sphereGeometry args={[0.15, 8, 8]} />
+            <meshStandardMaterial
+              color="#ffffff"
+              emissive="#ffffff"
+              emissiveIntensity={0.8}
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+          {/* Pulse animation */}
+          <pointLight
+            color="#42b4f4"
+            intensity={2}
+            distance={2}
+            decay={2}
           />
-        </mesh>
+        </group>
       )}
       
       {/* Orbit controls for mobile devices only */}
