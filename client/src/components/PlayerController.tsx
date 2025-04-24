@@ -6,14 +6,13 @@ import { Controls } from "../hooks/useControls";
 import { PORTAL_INTERACTION_DISTANCE } from "../lib/constants";
 import { usePortals } from "../lib/stores/usePortals";
 import { useIsMobile } from "../hooks/use-is-mobile";
-import { CharacterModel } from "./CharacterModel";
 
 // Character properties
 const CHARACTER_SPEED = 5;
 const CHARACTER_TURN_SPEED = 2.5;
 const CHARACTER_HEIGHT = 1.8;
-const CAMERA_DISTANCE = 8;  // Increased to see more of the character
-const CAMERA_HEIGHT = 4;    // Increased for a better view with the new model
+const CAMERA_DISTANCE = 5;
+const CAMERA_HEIGHT = 3;
 const MOUSE_SENSITIVITY = 0.007;
 const MOUSE_SMOOTHING = 0.1;
 
@@ -111,38 +110,54 @@ export function PlayerController() {
     // Apply rotation to character
     characterRef.current.rotation.y = targetRotationRef.current;
     
-    // Get character forward direction based on its rotation
-    const characterDirection = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
+    // Get current camera direction vector (for movement relative to camera view)
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+    cameraDirection.y = 0; // Keep movement on XZ plane
+    cameraDirection.normalize();
     
-    // Get character right direction
-    const characterRight = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
+    // Calculate right vector from camera direction
+    const rightVector = new THREE.Vector3(
+      cameraDirection.z,
+      0,
+      -cameraDirection.x
+    );
     
     // Movement vectors
     const moveForward = new THREE.Vector3();
     const moveRight = new THREE.Vector3();
     
-    // Calculate movement direction based on character orientation
+    // Calculate movement direction based on camera orientation
     if (forward) {
-      moveForward.copy(characterDirection).multiplyScalar(CHARACTER_SPEED * delta);
+      moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
     } else if (backward) {
-      moveForward.copy(characterDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
     }
     
     if (leftward && !autoRotate) {
-      moveRight.copy(characterRight).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+      moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
     } else if (rightward && !autoRotate) {
-      moveRight.copy(characterRight).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
     }
     
     // Combine movement vectors
     velocity.add(moveForward).add(moveRight);
     
-    // Apply movement - this actually moves the character
+    // Apply movement
     if (moving) {
       characterPosition.add(velocity);
+      
+      // Face character in movement direction if using camera-relative movement
+      if ((forward || backward) && (leftward || rightward) && !autoRotate) {
+        const moveDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+        if (moveDirection.length() > 0.1) {
+          const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
+          targetRotationRef.current = targetRotation;
+        }
+      }
     }
     
-    // Position camera to follow character
+    // Position camera to follow character (if not using orbit controls)
     if (isMobile) {
       // Mobile uses orbit controls
     } else {
@@ -196,46 +211,44 @@ export function PlayerController() {
   
   return (
     <group ref={characterRef} name="character">
-      {/* 3D Character model */}
-      <CharacterModel 
-        castShadow 
-        receiveShadow
-        // The model should face the negative Z direction by default
-        rotation={[0, Math.PI, 0]}
-      />
+      {/* Character model here */}
+      <mesh position={[0, CHARACTER_HEIGHT / 2, 0]} castShadow>
+        <capsuleGeometry args={[0.4, CHARACTER_HEIGHT - 0.8, 8, 16]} />
+        <meshStandardMaterial 
+          color={isNearPortal ? "#42b4f4" : "#4285f4"} 
+          emissive={isNearPortal ? "#42b4f4" : "#000000"}
+          emissiveIntensity={isNearPortal ? 0.3 : 0}
+        />
+      </mesh>
       
-      {/* Direction indicator - forward arrow */}
-      <mesh 
-        position={[0, 0.1, -0.6]} 
-        rotation={[Math.PI / 2, 0, 0]} 
-        scale={[0.2, 0.3, 0.1]}
-        visible={false} // Hidden direction indicator, useful for debugging
-      >
-        <coneGeometry args={[1, 2, 8]} />
-        <meshStandardMaterial color="yellow" />
+      {/* Character eyes for direction reference */}
+      <mesh position={[0, CHARACTER_HEIGHT - 0.3, 0.35]} castShadow>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      
+      <mesh position={[0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
+        <sphereGeometry args={[0.08, 16, 16]} />
+        <meshStandardMaterial color="black" />
+      </mesh>
+      
+      <mesh position={[-0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
+        <sphereGeometry args={[0.08, 16, 16]} />
+        <meshStandardMaterial color="black" />
       </mesh>
       
       {/* Interaction indicator when near portal */}
       {isNearPortal && (
-        <group position={[0, CHARACTER_HEIGHT + 0.5, 0]}>
-          <mesh>
-            <sphereGeometry args={[0.15, 8, 8]} />
-            <meshStandardMaterial
-              color="#ffffff"
-              emissive="#ffffff"
-              emissiveIntensity={0.8}
-              transparent
-              opacity={0.8}
-            />
-          </mesh>
-          {/* Pulse animation */}
-          <pointLight
-            color="#42b4f4"
-            intensity={2}
-            distance={2}
-            decay={2}
+        <mesh position={[0, CHARACTER_HEIGHT + 0.5, 0]}>
+          <sphereGeometry args={[0.15, 8, 8]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.8}
+            transparent
+            opacity={0.8}
           />
-        </group>
+        </mesh>
       )}
       
       {/* Orbit controls for mobile devices only */}
