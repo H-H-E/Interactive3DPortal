@@ -8,7 +8,7 @@ import { Environment as GameEnvironment } from "./Environment";
 import { usePortals } from "../lib/stores/usePortals";
 import { useAudio } from "../lib/stores/useAudio";
 import { useGame } from "../lib/stores/useGame";
-import { PlayerController } from "./PlayerController";
+import { ThirdPersonController } from "./ThirdPersonController";
 import { PortalCamera } from "./PortalCamera";
 import { useIsMobile } from "../hooks/use-is-mobile";
 
@@ -63,7 +63,7 @@ export default function Game() {
         )}
         
         {/* Player character with improved controls */}
-        <PlayerController />
+        <ThirdPersonController />
         
         {/* Portals */}
         <Portal 

@@ -13,17 +13,15 @@ export function CharacterModel(props: any) {
   // Log available animations once on load and set up animations
   useEffect(() => {
     if (actions) {
-      console.log("Available animations:", Object.keys(actions));
-      
-      // Get default animation names from the model
-      const availableAnimations = Object.keys(actions);
+      const animationNames = Object.keys(actions);
+      console.log("Available animations:", animationNames);
       
       // Play the first animation as default
-      if (availableAnimations.length > 0) {
-        const defaultAction = actions[availableAnimations[0]];
+      if (animationNames.length > 0) {
+        const defaultAction = actions[animationNames[0]];
         if (defaultAction) {
           defaultAction.reset().play();
-          console.log(`Playing default animation: ${availableAnimations[0]}`);
+          console.log(`Playing default animation: ${animationNames[0]}`);
         }
       }
     }
@@ -31,39 +29,43 @@ export function CharacterModel(props: any) {
   
   // Update animation when movement state changes
   useEffect(() => {
-    if (actions && Object.keys(actions).length > 0) {
-      // Get all available animations
-      const availableAnimations = Object.keys(actions);
-      
-      // Try to find walking/running animations
-      const walkAnimations = availableAnimations.filter(name => 
-        name.toLowerCase().includes('walk') || name.toLowerCase().includes('run'));
-        
-      // Try to find idle animations
-      const idleAnimations = availableAnimations.filter(name => 
-        name.toLowerCase().includes('idle') || name.toLowerCase().includes('stand'));
-        
-      if (props.isMoving && walkAnimations.length > 0) {
-        // Play walking animation
-        const walkAnimation = walkAnimations[0];
-        
-        // Stop all current animations
-        Object.values(actions).forEach(action => action.stop());
-        
-        // Play the walk animation
-        actions[walkAnimation].reset().play();
-        console.log(`Playing walk animation: ${walkAnimation}`);
-      } else if (!props.isMoving && idleAnimations.length > 0) {
-        // Play idle animation
-        const idleAnimation = idleAnimations[0];
-        
-        // Stop all current animations
-        Object.values(actions).forEach(action => action.stop());
-        
-        // Play the idle animation
-        actions[idleAnimation].reset().play();
-        console.log(`Playing idle animation: ${idleAnimation}`);
+    if (!actions) return;
+    
+    const animationNames = Object.keys(actions);
+    if (animationNames.length === 0) return;
+    
+    // Find appropriate animations
+    let walkAnim = null;
+    let idleAnim = null;
+    
+    // Get walk and idle animations
+    for (const name of animationNames) {
+      const lowerName = name.toLowerCase();
+      if (lowerName.includes('walk') || lowerName.includes('run')) {
+        walkAnim = name;
       }
+      if (lowerName.includes('idle') || lowerName.includes('stand')) {
+        idleAnim = name;
+      }
+    }
+    
+    // Use first animation as fallback
+    const fallbackAnim = animationNames[0];
+    
+    // Default animation to play
+    let animToPlay = props.isMoving ? (walkAnim || fallbackAnim) : (idleAnim || fallbackAnim);
+    
+    // Stop all animations
+    animationNames.forEach(name => {
+      const action = actions[name];
+      if (action) action.stop();
+    });
+    
+    // Play the selected animation
+    const currentAction = actions[animToPlay];
+    if (currentAction) {
+      currentAction.reset().play();
+      console.log(`Playing ${props.isMoving ? 'walk' : 'idle'} animation: ${animToPlay}`);
     }
   }, [actions, props.isMoving]);
   
