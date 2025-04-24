@@ -82,6 +82,10 @@ export function PlayerController() {
     }
   }, [gl, isMobile, autoRotate]);
 
+  // State for tracking character movement for animations
+  const [isMoving, setIsMoving] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
+
   // Handle character movement with combined keyboard and mouse input
   useFrame((state, delta) => {
     if (!characterRef.current) return;
@@ -89,17 +93,16 @@ export function PlayerController() {
     // Get keyboard controls state
     const { forward, backward, leftward, rightward, interact } = getKeys();
     
-    // Reference the character position
+    // Reference the character position directly
     const characterPosition = characterRef.current.position;
-    
-    // Reset velocity
-    const velocity = velocityRef.current;
-    velocity.set(0, 0, 0);
     
     // Calculate movement direction
     const moving = forward || backward || leftward || rightward;
     
-    // Update rotation based on keyboard controls when not using mouse drag
+    // Update animation state
+    setIsMoving(moving);
+    
+    // Handle rotation with keyboard or mouse
     if (!autoRotate) {
       if (leftward) {
         targetRotationRef.current += CHARACTER_TURN_SPEED * delta;
@@ -111,35 +114,37 @@ export function PlayerController() {
     // Apply rotation to character
     characterRef.current.rotation.y = targetRotationRef.current;
     
-    // Get character forward direction based on its rotation
-    const characterDirection = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
+    // SIMPLIFIED MOVEMENT: Just move directly in cardinal directions
+    const moveSpeed = CHARACTER_SPEED * delta;
+    const moveVector = new THREE.Vector3(0, 0, 0);
     
-    // Get character right direction
-    const characterRight = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
-    
-    // Movement vectors
-    const moveForward = new THREE.Vector3();
-    const moveRight = new THREE.Vector3();
-    
-    // Calculate movement direction based on character orientation
+    // Forward based on character orientation (negative Z is forward)
     if (forward) {
-      moveForward.copy(characterDirection).multiplyScalar(CHARACTER_SPEED * delta);
-    } else if (backward) {
-      moveForward.copy(characterDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      // Move in negative Z (character's forward direction)
+      moveVector.z -= moveSpeed;
+    } 
+    else if (backward) {
+      // Move in positive Z (character's backward direction)
+      moveVector.z += moveSpeed * 0.5;
     }
     
+    // Left/right strafing based on character orientation
     if (leftward && !autoRotate) {
-      moveRight.copy(characterRight).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
-    } else if (rightward && !autoRotate) {
-      moveRight.copy(characterRight).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      // Move in negative X (character's left)
+      moveVector.x -= moveSpeed * 0.8;
+    } 
+    else if (rightward && !autoRotate) {
+      // Move in positive X (character's right)
+      moveVector.x += moveSpeed * 0.8;
     }
     
-    // Combine movement vectors
-    velocity.add(moveForward).add(moveRight);
-    
-    // Apply movement - this actually moves the character
-    if (moving) {
-      characterPosition.add(velocity);
+    // Apply movement in character's local space
+    if (moving && characterRef.current) {
+      // Convert the local movement to world space based on character's rotation
+      moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
+      
+      // Move the character in world space
+      characterRef.current.position.add(moveVector);
     }
     
     // Position camera to follow character
@@ -153,11 +158,11 @@ export function PlayerController() {
         -Math.cos(targetRotationRef.current) * CAMERA_DISTANCE
       );
       
-      camera.position.copy(characterPosition).add(cameraOffset);
+      camera.position.copy(characterRef.current.position).add(cameraOffset);
       camera.lookAt(
-        characterPosition.x,
-        characterPosition.y + CHARACTER_HEIGHT / 2,
-        characterPosition.z
+        characterRef.current.position.x,
+        characterRef.current.position.y + CHARACTER_HEIGHT / 2,
+        characterRef.current.position.z
       );
     }
     
@@ -173,7 +178,7 @@ export function PlayerController() {
         portal.position[2]
       );
       
-      const distance = characterPosition.distanceTo(portalPosition);
+      const distance = characterRef.current.position.distanceTo(portalPosition);
       
       if (distance < shortestDistance) {
         shortestDistance = distance;
@@ -196,10 +201,12 @@ export function PlayerController() {
   
   return (
     <group ref={characterRef} name="character">
-      {/* 3D Character model */}
+      {/* 3D Character model with animation state */}
       <CharacterModel 
         castShadow 
         receiveShadow
+        isMoving={isMoving}
+        isJumping={isJumping}
         // The model should face the negative Z direction by default
         rotation={[0, Math.PI, 0]}
       />
