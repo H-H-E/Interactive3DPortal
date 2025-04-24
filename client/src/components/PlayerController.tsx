@@ -30,8 +30,11 @@ export function PlayerController() {
   // Get scene and camera from Three.js context
   const { camera, scene, gl, mouse } = useThree();
   
-  // Get portals state
-  const { portals, setNearPortal } = usePortals();
+  // Get portals state from store
+  const portals = usePortals(state => state.portals);
+  const setNearPortal = usePortals(state => state.setNearPortal);
+  const enterPortal = usePortals(state => state.enterPortal);
+  const nearPortal = usePortals(state => state.nearPortal);
   
   // Get keyboard controls
   const [, getKeys] = useKeyboardControls<Controls>();
@@ -83,7 +86,7 @@ export function PlayerController() {
     if (!characterRef.current) return;
     
     // Get keyboard controls state
-    const { forward, backward, leftward, rightward } = getKeys();
+    const { forward, backward, leftward, rightward, interact } = getKeys();
     
     // Reference the character position
     const characterPosition = characterRef.current.position;
@@ -195,14 +198,27 @@ export function PlayerController() {
     
     // Update nearest portal in state
     setNearPortal(nearestPortal);
+    
+    // Handle portal interaction with 'E' key
+    if (interact && nearestPortal) {
+      // Just toggle the state, the portal component handles the transition
+      enterPortal();
+    }
   });
 
+  // Check if we're near a portal for visual indicators
+  const isNearPortal = nearPortal !== null;
+  
   return (
     <group ref={characterRef} name="character">
       {/* Character model here */}
       <mesh position={[0, CHARACTER_HEIGHT / 2, 0]} castShadow>
         <capsuleGeometry args={[0.4, CHARACTER_HEIGHT - 0.8, 8, 16]} />
-        <meshStandardMaterial color="#4285f4" />
+        <meshStandardMaterial 
+          color={isNearPortal ? "#42b4f4" : "#4285f4"} 
+          emissive={isNearPortal ? "#42b4f4" : "#000000"}
+          emissiveIntensity={isNearPortal ? 0.3 : 0}
+        />
       </mesh>
       
       {/* Character eyes for direction reference */}
@@ -220,6 +236,20 @@ export function PlayerController() {
         <sphereGeometry args={[0.08, 16, 16]} />
         <meshStandardMaterial color="black" />
       </mesh>
+      
+      {/* Interaction indicator when near portal */}
+      {isNearPortal && (
+        <mesh position={[0, CHARACTER_HEIGHT + 0.5, 0]}>
+          <sphereGeometry args={[0.15, 8, 8]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={0.8}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+      )}
       
       {/* Orbit controls for mobile devices only */}
       {isMobile && (
