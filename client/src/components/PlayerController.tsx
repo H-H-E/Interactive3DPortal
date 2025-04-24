@@ -9,162 +9,209 @@ import { useIsMobile } from "../hooks/use-is-mobile";
 import { CharacterModel } from "./CharacterModel";
 
 // Character properties
-const CHARACTER_SPEED = 5;
-const CHARACTER_TURN_SPEED = 2.5;
+const CHARACTER_SPEED = 8; // Increased speed for more obvious movement
+const CHARACTER_TURN_SPEED = 3;
 const CHARACTER_HEIGHT = 1.8;
-const CAMERA_DISTANCE = 8;  // Increased to see more of the character
-const CAMERA_HEIGHT = 4;    // Increased for a better view with the new model
-const MOUSE_SENSITIVITY = 0.007;
-const MOUSE_SMOOTHING = 0.1;
+const CAMERA_DISTANCE = 10;
+const CAMERA_HEIGHT = 5;
+const CAMERA_LERP = 0.1; // Camera smoothing
+const GRAVITY = 30;
+const JUMP_FORCE = 10;
+const GROUND_FRICTION = 0.8;
 
 export function PlayerController() {
-  // Character and camera references
+  // Character references
   const characterRef = useRef<THREE.Group>(null);
-  const orbitControlsRef = useRef<any>(null);
-  const velocityRef = useRef(new THREE.Vector3());
-  const targetRotationRef = useRef(0);
-  const lastMouseXRef = useRef(0);
-  const [autoRotate, setAutoRotate] = useState(false);
+  const cameraRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const directionRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 1));
+  const velocityRef = useRef<THREE.Vector3>(new THREE.Vector3());
   
+  // Player state
+  const [rotation, setRotation] = useState(0);
+  const [isMoving, setIsMoving] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
+  
+  // Mouse control state
+  const mouseStartRef = useRef<{x: number, y: number} | null>(null);
+  const yawRef = useRef(0);
+  
+  // Platform detection
   const isMobile = useIsMobile();
   
-  // Get scene and camera from Three.js context
-  const { camera, scene, gl, mouse } = useThree();
+  // Three.js context
+  const { camera, scene, gl } = useThree();
   
-  // Get portals state from store
+  // Portals state
   const portals = usePortals(state => state.portals);
   const setNearPortal = usePortals(state => state.setNearPortal);
   const enterPortal = usePortals(state => state.enterPortal);
   const nearPortal = usePortals(state => state.nearPortal);
   
-  // Get keyboard controls
+  // Input controls
   const [, getKeys] = useKeyboardControls<Controls>();
   
-  // Initialize the character
+  // Debug logging
+  useEffect(() => {
+    console.log("Controls: WASD to move, hold mouse and drag to look around");
+    console.log("Press E near portals to interact");
+  }, []);
+  
+  // Initialize character position
   useEffect(() => {
     if (characterRef.current) {
-      // Set initial position and rotation
-      characterRef.current.position.set(0, CHARACTER_HEIGHT / 2, 0);
+      characterRef.current.position.set(0, 0, 0);
       
-      // Set up mouse event listeners for desktop
-      if (!isMobile) {
-        const canvas = gl.domElement;
-        
-        const handleMouseDown = (e: MouseEvent) => {
-          document.body.style.cursor = 'grabbing';
-          setAutoRotate(true);
-          lastMouseXRef.current = e.clientX;
-        };
-        
-        const handleMouseUp = () => {
-          document.body.style.cursor = 'auto';
-          setAutoRotate(false);
-        };
-        
-        const handleMouseMove = (e: MouseEvent) => {
-          if (autoRotate) {
-            const deltaX = e.clientX - lastMouseXRef.current;
-            targetRotationRef.current -= deltaX * MOUSE_SENSITIVITY;
-            lastMouseXRef.current = e.clientX;
-          }
-        };
-        
-        canvas.addEventListener('mousedown', handleMouseDown);
-        document.addEventListener('mouseup', handleMouseUp);
-        document.addEventListener('mousemove', handleMouseMove);
-        
-        return () => {
-          canvas.removeEventListener('mousedown', handleMouseDown);
-          document.removeEventListener('mouseup', handleMouseUp);
-          document.removeEventListener('mousemove', handleMouseMove);
-        };
-      }
+      // Set up camera initial position
+      camera.position.set(0, CAMERA_HEIGHT, CAMERA_DISTANCE);
+      camera.lookAt(0, CHARACTER_HEIGHT / 2, 0);
     }
-  }, [gl, isMobile, autoRotate]);
-
-  // State for tracking character movement for animations
-  const [isMoving, setIsMoving] = useState(false);
-  const [isJumping, setIsJumping] = useState(false);
-
-  // Handle character movement with combined keyboard and mouse input
+  }, [camera]);
+  
+  // Setup mouse controls
+  useEffect(() => {
+    if (!isMobile) {
+      const canvas = gl.domElement;
+      
+      const handleMouseDown = (e: MouseEvent) => {
+        if (mouseStartRef.current === null) {
+          mouseStartRef.current = { x: e.clientX, y: e.clientY };
+          canvas.style.cursor = 'grabbing';
+        }
+      };
+      
+      const handleMouseUp = () => {
+        mouseStartRef.current = null;
+        canvas.style.cursor = 'grab';
+      };
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        if (mouseStartRef.current) {
+          const deltaX = e.clientX - mouseStartRef.current.x;
+          mouseStartRef.current = { x: e.clientX, y: e.clientY };
+          
+          // Update character rotation
+          yawRef.current -= deltaX * 0.01;
+          setRotation(yawRef.current);
+        }
+      };
+      
+      canvas.addEventListener('mousedown', handleMouseDown);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove);
+      
+      return () => {
+        canvas.removeEventListener('mousedown', handleMouseDown);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [gl, isMobile]);
+  
+  // Main update loop
   useFrame((state, delta) => {
     if (!characterRef.current) return;
     
-    // Get keyboard controls state
-    const { forward, backward, leftward, rightward, interact } = getKeys();
+    // Get character reference
+    const character = characterRef.current;
     
-    // Reference the character position directly
-    const characterPosition = characterRef.current.position;
+    // Get input state
+    const { forward, backward, leftward, rightward, interact, jump } = getKeys();
     
-    // Calculate movement direction
+    // Calculate if character is moving
     const moving = forward || backward || leftward || rightward;
-    
-    // Update animation state
     setIsMoving(moving);
     
-    // Handle rotation with keyboard or mouse
-    if (!autoRotate) {
-      if (leftward) {
-        targetRotationRef.current += CHARACTER_TURN_SPEED * delta;
-      } else if (rightward) {
-        targetRotationRef.current -= CHARACTER_TURN_SPEED * delta;
+    // Update character rotation
+    character.rotation.y = yawRef.current;
+    
+    // Calculate movement direction
+    const direction = new THREE.Vector3();
+    
+    // Forward/backward movement
+    if (forward) {
+      direction.z = -1;
+    } else if (backward) {
+      direction.z = 1;
+    }
+    
+    // Left/right movement
+    if (leftward) {
+      direction.x = -1;
+    } else if (rightward) {
+      direction.x = 1;
+    }
+    
+    // Normalize direction if moving diagonally
+    if (direction.length() > 0) {
+      direction.normalize();
+    }
+    
+    // Apply character orientation to movement direction
+    direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), yawRef.current);
+    
+    // Store direction for debugging
+    directionRef.current.copy(direction);
+    
+    // Calculate movement
+    const moveSpeed = CHARACTER_SPEED * delta;
+    
+    // Apply movement
+    if (moving) {
+      // Calculate movement with increased speed for visibility
+      const actualSpeed = moveSpeed * 3; // Triple the speed for clear visibility
+      
+      // Move character
+      character.position.x += direction.x * actualSpeed;
+      character.position.z += direction.z * actualSpeed;
+      
+      // Debug log the movement for clarity (limit to avoid console spam)
+      if (Math.random() < 0.1) {
+        console.log(
+          `Character moving: pos=(${character.position.x.toFixed(2)}, ${character.position.y.toFixed(2)}, ${character.position.z.toFixed(2)})`
+        );
       }
     }
     
-    // Apply rotation to character
-    characterRef.current.rotation.y = targetRotationRef.current;
-    
-    // SIMPLIFIED MOVEMENT: Just move directly in cardinal directions
-    const moveSpeed = CHARACTER_SPEED * delta;
-    const moveVector = new THREE.Vector3(0, 0, 0);
-    
-    // Forward based on character orientation (negative Z is forward)
-    if (forward) {
-      // Move in negative Z (character's forward direction)
-      moveVector.z -= moveSpeed;
-    } 
-    else if (backward) {
-      // Move in positive Z (character's backward direction)
-      moveVector.z += moveSpeed * 0.5;
-    }
-    
-    // Left/right strafing based on character orientation
-    if (leftward && !autoRotate) {
-      // Move in negative X (character's left)
-      moveVector.x -= moveSpeed * 0.8;
-    } 
-    else if (rightward && !autoRotate) {
-      // Move in positive X (character's right)
-      moveVector.x += moveSpeed * 0.8;
-    }
-    
-    // Apply movement in character's local space
-    if (moving && characterRef.current) {
-      // Convert the local movement to world space based on character's rotation
-      moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
-      
-      // Move the character in world space
-      characterRef.current.position.add(moveVector);
-    }
-    
-    // Position camera to follow character
-    if (isMobile) {
-      // Mobile uses orbit controls
-    } else {
-      // On desktop, position camera behind character at fixed distance
-      const cameraOffset = new THREE.Vector3(
-        -Math.sin(targetRotationRef.current) * CAMERA_DISTANCE,
-        CAMERA_HEIGHT,
-        -Math.cos(targetRotationRef.current) * CAMERA_DISTANCE
+    // Add large visual marker to show movement (floats above character)
+    if (moving) {
+      // Create floating text above character to show movement
+      const floatingText = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+      );
+      floatingText.position.set(
+        character.position.x,
+        character.position.y + 3,
+        character.position.z
       );
       
-      camera.position.copy(characterRef.current.position).add(cameraOffset);
-      camera.lookAt(
-        characterRef.current.position.x,
-        characterRef.current.position.y + CHARACTER_HEIGHT / 2,
-        characterRef.current.position.z
-      );
+      // Remove after 0.5 seconds
+      setTimeout(() => {
+        if (scene.children.includes(floatingText)) {
+          scene.remove(floatingText);
+        }
+      }, 500);
+      
+      // Add to scene
+      scene.add(floatingText);
     }
+    
+    // Update camera position
+    const idealCameraPos = new THREE.Vector3(
+      character.position.x - Math.sin(yawRef.current) * CAMERA_DISTANCE,
+      character.position.y + CAMERA_HEIGHT,
+      character.position.z - Math.cos(yawRef.current) * CAMERA_DISTANCE
+    );
+    
+    // Smooth camera follow
+    camera.position.lerp(idealCameraPos, CAMERA_LERP);
+    
+    // Make camera look at character
+    camera.lookAt(
+      character.position.x,
+      character.position.y + CHARACTER_HEIGHT / 2,
+      character.position.z
+    );
     
     // Check for proximity to portals
     let nearestPortal = null;
@@ -213,13 +260,13 @@ export function PlayerController() {
       
       {/* Direction indicator - forward arrow */}
       <mesh 
-        position={[0, 0.1, -0.6]} 
-        rotation={[Math.PI / 2, 0, 0]} 
-        scale={[0.2, 0.3, 0.1]}
-        visible={false} // Hidden direction indicator, useful for debugging
+        position={[0, 1.5, -1.0]} 
+        rotation={[0, 0, 0]} 
+        scale={[0.2, 0.2, 1.0]}
+        visible={true} // Show direction arrow for debugging
       >
-        <coneGeometry args={[1, 2, 8]} />
-        <meshStandardMaterial color="yellow" />
+        <coneGeometry args={[0.5, 1, 8]} />
+        <meshStandardMaterial color="red" />
       </mesh>
       
       {/* Interaction indicator when near portal */}
