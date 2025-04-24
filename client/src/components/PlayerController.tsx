@@ -111,54 +111,38 @@ export function PlayerController() {
     // Apply rotation to character
     characterRef.current.rotation.y = targetRotationRef.current;
     
-    // Get current camera direction vector (for movement relative to camera view)
-    const cameraDirection = new THREE.Vector3();
-    camera.getWorldDirection(cameraDirection);
-    cameraDirection.y = 0; // Keep movement on XZ plane
-    cameraDirection.normalize();
+    // Get character forward direction based on its rotation
+    const characterDirection = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
     
-    // Calculate right vector from camera direction
-    const rightVector = new THREE.Vector3(
-      cameraDirection.z,
-      0,
-      -cameraDirection.x
-    );
+    // Get character right direction
+    const characterRight = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetRotationRef.current);
     
     // Movement vectors
     const moveForward = new THREE.Vector3();
     const moveRight = new THREE.Vector3();
     
-    // Calculate movement direction based on camera orientation
+    // Calculate movement direction based on character orientation
     if (forward) {
-      moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
+      moveForward.copy(characterDirection).multiplyScalar(CHARACTER_SPEED * delta);
     } else if (backward) {
-      moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      moveForward.copy(characterDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
     }
     
     if (leftward && !autoRotate) {
-      moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+      moveRight.copy(characterRight).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
     } else if (rightward && !autoRotate) {
-      moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      moveRight.copy(characterRight).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
     }
     
     // Combine movement vectors
     velocity.add(moveForward).add(moveRight);
     
-    // Apply movement
+    // Apply movement - this actually moves the character
     if (moving) {
       characterPosition.add(velocity);
-      
-      // Face character in movement direction if using camera-relative movement
-      if ((forward || backward) && (leftward || rightward) && !autoRotate) {
-        const moveDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
-        if (moveDirection.length() > 0.1) {
-          const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
-          targetRotationRef.current = targetRotation;
-        }
-      }
     }
     
-    // Position camera to follow character (if not using orbit controls)
+    // Position camera to follow character
     if (isMobile) {
       // Mobile uses orbit controls
     } else {
