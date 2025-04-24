@@ -8,8 +8,9 @@ import { Environment as GameEnvironment } from "./Environment";
 import { usePortals } from "../lib/stores/usePortals";
 import { useAudio } from "../lib/stores/useAudio";
 import { useGame } from "../lib/stores/useGame";
-import { SimpleCharacterController } from "./SimpleCharacterController";
+import { PlayerController } from "./PlayerController";
 import { PortalCamera } from "./PortalCamera";
+import { useIsMobile } from "../hooks/use-is-mobile";
 
 export default function Game() {
   const { phase, start } = useGame();
@@ -24,8 +25,8 @@ export default function Game() {
     setCurrentScene("city");
     
     // Add helper text to show controls
-    console.log("Controls: WASD to move, E to interact with portals");
-    console.log("Character implemented with SimpleCharacterController");
+    console.log("Controls: WASD to move, Mouse to look around (hold and drag)");
+    console.log("Press E near portals to interact with them");
   }, [start, setCurrentScene]);
   
   // Effect for portal transitions
@@ -62,7 +63,7 @@ export default function Game() {
         )}
         
         {/* Player character with improved controls */}
-        <SimpleCharacterController />
+        <PlayerController />
         
         {/* Portals */}
         <Portal 
