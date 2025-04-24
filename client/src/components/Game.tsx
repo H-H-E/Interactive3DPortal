@@ -1,4 +1,4 @@
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Sky, Environment } from "@react-three/drei";
 import { Ground } from "./Ground";
 import { Lighting } from "./Lighting";
@@ -9,12 +9,10 @@ import { usePortals } from "../lib/stores/usePortals";
 import { useAudio } from "../lib/stores/useAudio";
 import { useGame } from "../lib/stores/useGame";
 import { PlayerController } from "./PlayerController";
-import { OrbitCamera } from "./OrbitCamera";
 import { PortalCamera } from "./PortalCamera";
 import { useIsMobile } from "../hooks/use-is-mobile";
 
 export default function Game() {
-  const isMobile = useIsMobile();
   const { phase, start } = useGame();
   const { isInPortal, currentScene, setCurrentScene } = usePortals();
   const audio = useAudio();
@@ -25,6 +23,10 @@ export default function Game() {
     
     // Set initial scene
     setCurrentScene("city");
+    
+    // Add helper text to show controls
+    console.log("Controls: WASD to move, Mouse to look around (hold and drag)");
+    console.log("Press E near portals to interact with them");
   }, [start, setCurrentScene]);
   
   // Effect for portal transitions
@@ -96,18 +98,8 @@ export default function Game() {
           />
         )}
         
-        {/* Camera systems */}
-        {isMobile ? (
-          // Mobile: Use orbit camera with touch controls
-          <OrbitCamera 
-            enableZoom={true}
-            minDistance={5}
-            maxDistance={15}
-          />
-        ) : (
-          // Desktop: Portal camera handles smooth transitions
-          <PortalCamera transitionDuration={1.0} />
-        )}
+        {/* Portal camera handles smooth transitions when using portals */}
+        <PortalCamera transitionDuration={1.0} />
       </Suspense>
     </>
   );

@@ -1,10 +1,11 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useKeyboardControls } from "@react-three/drei";
 import * as THREE from "three";
 import { Controls } from "../hooks/useControls";
 import { PORTAL_INTERACTION_DISTANCE } from "../lib/constants";
 import { usePortals } from "../lib/stores/usePortals";
+import { useIsMobile } from "../hooks/use-is-mobile";
 
 // Character properties
 const CHARACTER_SPEED = 5;
@@ -12,15 +13,22 @@ const CHARACTER_TURN_SPEED = 2.5;
 const CHARACTER_HEIGHT = 1.8;
 const CAMERA_DISTANCE = 5;
 const CAMERA_HEIGHT = 3;
+const MOUSE_SENSITIVITY = 0.007;
+const MOUSE_SMOOTHING = 0.1;
 
 export function PlayerController() {
   // Character and camera references
   const characterRef = useRef<THREE.Group>(null);
+  const orbitControlsRef = useRef<any>(null);
   const velocityRef = useRef(new THREE.Vector3());
   const targetRotationRef = useRef(0);
+  const lastMouseXRef = useRef(0);
+  const [autoRotate, setAutoRotate] = useState(false);
+  
+  const isMobile = useIsMobile();
   
   // Get scene and camera from Three.js context
-  const { camera, scene } = useThree();
+  const { camera, scene, gl, mouse } = useThree();
   
   // Get portals state
   const { portals, setNearPortal } = usePortals();
@@ -34,27 +42,43 @@ export function PlayerController() {
       // Set initial position and rotation
       characterRef.current.position.set(0, CHARACTER_HEIGHT / 2, 0);
       
-      // Set initial camera position
-      updateCameraPosition(camera, characterRef.current.position);
+      // Set up mouse event listeners for desktop
+      if (!isMobile) {
+        const canvas = gl.domElement;
+        
+        const handleMouseDown = (e: MouseEvent) => {
+          document.body.style.cursor = 'grabbing';
+          setAutoRotate(true);
+          lastMouseXRef.current = e.clientX;
+        };
+        
+        const handleMouseUp = () => {
+          document.body.style.cursor = 'auto';
+          setAutoRotate(false);
+        };
+        
+        const handleMouseMove = (e: MouseEvent) => {
+          if (autoRotate) {
+            const deltaX = e.clientX - lastMouseXRef.current;
+            targetRotationRef.current -= deltaX * MOUSE_SENSITIVITY;
+            lastMouseXRef.current = e.clientX;
+          }
+        };
+        
+        canvas.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mousemove', handleMouseMove);
+        
+        return () => {
+          canvas.removeEventListener('mousedown', handleMouseDown);
+          document.removeEventListener('mouseup', handleMouseUp);
+          document.removeEventListener('mousemove', handleMouseMove);
+        };
+      }
     }
-  }, [camera]);
-  
-  // Update camera position based on character position
-  const updateCameraPosition = (camera: THREE.Camera, characterPosition: THREE.Vector3) => {
-    // Position camera behind and above character
-    camera.position.x = characterPosition.x;
-    camera.position.y = characterPosition.y + CAMERA_HEIGHT; 
-    camera.position.z = characterPosition.z + CAMERA_DISTANCE;
-    
-    // Look at character
-    camera.lookAt(
-      characterPosition.x,
-      characterPosition.y + CHARACTER_HEIGHT / 2,
-      characterPosition.z
-    );
-  };
+  }, [gl, isMobile, autoRotate]);
 
-  // Handle character movement and camera follow
+  // Handle character movement with combined keyboard and mouse input
   useFrame((state, delta) => {
     if (!characterRef.current) return;
     
@@ -71,44 +95,90 @@ export function PlayerController() {
     // Calculate movement direction
     const moving = forward || backward || leftward || rightward;
     
-    // Update rotation based on left/right controls
-    if (leftward) {
-      targetRotationRef.current += CHARACTER_TURN_SPEED * delta;
-    } else if (rightward) {
-      targetRotationRef.current -= CHARACTER_TURN_SPEED * delta;
+    // Update rotation based on keyboard controls when not using mouse drag
+    if (!autoRotate) {
+      if (leftward) {
+        targetRotationRef.current += CHARACTER_TURN_SPEED * delta;
+      } else if (rightward) {
+        targetRotationRef.current -= CHARACTER_TURN_SPEED * delta;
+      }
     }
     
     // Apply rotation to character
     characterRef.current.rotation.y = targetRotationRef.current;
     
-    // Calculate forward direction based on character rotation
-    const forwardDirection = new THREE.Vector3(
-      Math.sin(targetRotationRef.current),
+    // Get current camera direction vector (for movement relative to camera view)
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+    cameraDirection.y = 0; // Keep movement on XZ plane
+    cameraDirection.normalize();
+    
+    // Calculate right vector from camera direction
+    const rightVector = new THREE.Vector3(
+      cameraDirection.z,
       0,
-      Math.cos(targetRotationRef.current)
+      -cameraDirection.x
     );
     
-    // Set movement speed based on input
+    // Movement vectors
+    const moveForward = new THREE.Vector3();
+    const moveRight = new THREE.Vector3();
+    
+    // Calculate movement direction based on camera orientation
     if (forward) {
-      velocity.add(forwardDirection.clone().multiplyScalar(CHARACTER_SPEED * delta));
+      moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
     } else if (backward) {
-      velocity.add(forwardDirection.clone().multiplyScalar(-CHARACTER_SPEED * delta * 0.5));
+      moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
     }
+    
+    if (leftward && !autoRotate) {
+      moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+    } else if (rightward && !autoRotate) {
+      moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+    }
+    
+    // Combine movement vectors
+    velocity.add(moveForward).add(moveRight);
     
     // Apply movement
     if (moving) {
       characterPosition.add(velocity);
+      
+      // Face character in movement direction if using camera-relative movement
+      if ((forward || backward) && (leftward || rightward) && !autoRotate) {
+        const moveDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+        if (moveDirection.length() > 0.1) {
+          const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
+          targetRotationRef.current = targetRotation;
+        }
+      }
     }
     
-    // Update camera position to follow character
-    updateCameraPosition(camera, characterPosition);
+    // Position camera to follow character (if not using orbit controls)
+    if (isMobile) {
+      // Mobile uses orbit controls
+    } else {
+      // On desktop, position camera behind character at fixed distance
+      const cameraOffset = new THREE.Vector3(
+        -Math.sin(targetRotationRef.current) * CAMERA_DISTANCE,
+        CAMERA_HEIGHT,
+        -Math.cos(targetRotationRef.current) * CAMERA_DISTANCE
+      );
+      
+      camera.position.copy(characterPosition).add(cameraOffset);
+      camera.lookAt(
+        characterPosition.x,
+        characterPosition.y + CHARACTER_HEIGHT / 2,
+        characterPosition.z
+      );
+    }
     
     // Check for proximity to portals
     let nearestPortal = null;
     let shortestDistance = PORTAL_INTERACTION_DISTANCE;
     
     // Check distance to each portal
-    portals.forEach(portal => {
+    for (const portal of portals) {
       const portalPosition = new THREE.Vector3(
         portal.position[0], 
         portal.position[1], 
@@ -121,7 +191,7 @@ export function PlayerController() {
         shortestDistance = distance;
         nearestPortal = portal;
       }
-    });
+    }
     
     // Update nearest portal in state
     setNearPortal(nearestPortal);
@@ -150,6 +220,25 @@ export function PlayerController() {
         <sphereGeometry args={[0.08, 16, 16]} />
         <meshStandardMaterial color="black" />
       </mesh>
+      
+      {/* Orbit controls for mobile devices only */}
+      {isMobile && (
+        <OrbitControls 
+          makeDefault
+          target={new THREE.Vector3(
+            characterRef.current?.position.x || 0,
+            (characterRef.current?.position.y || 0) + CHARACTER_HEIGHT / 2,
+            characterRef.current?.position.z || 0
+          )}
+          enableZoom={true}
+          enablePan={false}
+          maxPolarAngle={Math.PI / 2 - 0.1}
+          minDistance={3}
+          maxDistance={10}
+          enableDamping={true}
+          dampingFactor={0.1}
+        />
+      )}
     </group>
   );
 }
