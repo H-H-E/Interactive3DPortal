@@ -1,37 +1,24 @@
-import { Suspense, useState, useEffect, useRef } from "react";
-import { useThree, useFrame } from "@react-three/fiber";
-import { OrbitControls, PointerLockControls, Sky, Environment, useTexture } from "@react-three/drei";
-import * as THREE from "three";
-import { Character } from "./Character";
+import { Suspense, useState, useEffect } from "react";
+import { Sky, Environment } from "@react-three/drei";
 import { Ground } from "./Ground";
 import { Lighting } from "./Lighting";
 import { Portal } from "./Portal";
 import { City } from "./City";
 import { Environment as GameEnvironment } from "./Environment";
 import { usePortals } from "../lib/stores/usePortals";
-import { WORLD_SIZE } from "../lib/constants";
 import { useAudio } from "../lib/stores/useAudio";
 import { useGame } from "../lib/stores/useGame";
+import { PlayerController } from "./PlayerController";
+import { OrbitCamera } from "./OrbitCamera";
+import { PortalCamera } from "./PortalCamera";
+import { useIsMobile } from "../hooks/use-is-mobile";
 
 export default function Game() {
-  const { camera, scene } = useThree();
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const { phase, start } = useGame();
   const { isInPortal, currentScene, setCurrentScene } = usePortals();
   const audio = useAudio();
-  const characterRef = useRef<THREE.Group | null>(null);
 
-  // Detect mobile devices
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-  
   // Initialize game
   useEffect(() => {
     start();
@@ -39,33 +26,6 @@ export default function Game() {
     // Set initial scene
     setCurrentScene("city");
   }, [start, setCurrentScene]);
-  
-  // Third-person camera follow
-  useFrame(() => {
-    if (phase !== "playing") return;
-    
-    // Find character in the scene if not already referenced
-    if (!characterRef.current) {
-      const foundCharacter = scene.getObjectByName("character");
-      if (foundCharacter) {
-        characterRef.current = foundCharacter as THREE.Group;
-      }
-    }
-    
-    // Follow character in third-person view
-    if (characterRef.current) {
-      const characterPos = new THREE.Vector3();
-      characterRef.current.getWorldPosition(characterPos);
-      
-      // Position camera behind and above character
-      camera.position.x = characterPos.x;
-      camera.position.y = characterPos.y + 3;
-      camera.position.z = characterPos.z + 5;
-      
-      // Look at character
-      camera.lookAt(characterPos);
-    }
-  });
   
   // Effect for portal transitions
   useEffect(() => {
@@ -100,8 +60,8 @@ export default function Game() {
           <GameEnvironment type="beach" />
         )}
         
-        {/* Character */}
-        <Character />
+        {/* Player character with improved controls */}
+        <PlayerController />
         
         {/* Portals */}
         <Portal 
@@ -135,20 +95,20 @@ export default function Game() {
             label="City"
           />
         )}
+        
+        {/* Camera systems */}
+        {isMobile ? (
+          // Mobile: Use orbit camera with touch controls
+          <OrbitCamera 
+            enableZoom={true}
+            minDistance={5}
+            maxDistance={15}
+          />
+        ) : (
+          // Desktop: Portal camera handles smooth transitions
+          <PortalCamera transitionDuration={1.0} />
+        )}
       </Suspense>
-      
-      {/* Camera controls - OrbitControls for mobile, PointerLockControls for desktop */}
-      {isMobile ? (
-        <OrbitControls 
-          enableZoom={true}
-          enablePan={false}
-          maxPolarAngle={Math.PI / 2 - 0.1}
-          minDistance={5}
-          maxDistance={15}
-        />
-      ) : (
-        <PointerLockControls />
-      )}
     </>
   );
 }
