@@ -1,0 +1,4451 @@
+└── docs
+    ├── advanced
+        ├── performance.md
+        ├── pitfalls.md
+        └── theming.mdx
+    ├── apfel-kit
+        ├── button.mdx
+        ├── card.mdx
+        ├── checkbox.mdx
+        ├── input.mdx
+        ├── list.mdx
+        ├── loading.mdx
+        ├── progress.mdx
+        ├── slider.mdx
+        ├── tab-bar.mdx
+        └── tabs.mdx
+    ├── default-kit
+        ├── accordion.mdx
+        ├── alert-dialog.mdx
+        ├── alert.mdx
+        ├── avatar.mdx
+        ├── badge.mdx
+        ├── button.mdx
+        ├── card.mdx
+        ├── checkbox.mdx
+        ├── dialog.mdx
+        ├── input.mdx
+        ├── label.mdx
+        ├── pagination.mdx
+        ├── progress.mdx
+        ├── radio-group.mdx
+        ├── separator.mdx
+        ├── skeleton.mdx
+        ├── slider.mdx
+        ├── switch.mdx
+        ├── tabs.mdx
+        ├── toggle-group.mdx
+        ├── toggle.mdx
+        ├── tooltip.mdx
+        └── video.mdx
+    ├── generate-kit-docs.js
+    ├── getting-started
+        ├── apfel-overview.jpg
+        ├── banner.jpg
+        ├── basic-example.gif
+        ├── components-and-properties.md
+        ├── default-overview.jpg
+        ├── example-apfel.png
+        ├── example-auth.png
+        ├── example-card.png
+        ├── example-dashboard.png
+        ├── example-lucide.png
+        ├── example-market.png
+        ├── examples.md
+        ├── first-layout.mdx
+        ├── introduction.mdx
+        ├── logo.svg
+        └── vanilla.md
+    ├── migration
+        ├── from-html-css.md
+        ├── from-koestlich.md
+        └── from-tailwind.md
+    └── tutorials
+        ├── custom-fonts.md
+        ├── custom-materials.jpg
+        ├── custom-materials.mdx
+        ├── interactivity.gif
+        ├── interactivity.mdx
+        ├── responsive.md
+        ├── scroll.md
+        └── sizing.md
+
+
+/docs/advanced/performance.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Performance
+ 3 | description: Important considerations for building performant user interfaces with uikit.
+ 4 | nav: 12
+ 5 | ---
+ 6 | 
+ 7 | ## Avoid React Re-renders
+ 8 | 
+ 9 | When frequently changing properties of uikit components and especially when animating properties on every frame. We recommend modifying properties using `ref.current.setStyle` or using a signal.
+10 | 
+11 | ### using `ref.current.setStyle`
+12 | 
+13 | This approach is similar to html/css. The following code shows how to animate the background opacity on every frame without interfering with react.
+14 | 
+15 | ```jsx showLineNumbers
+16 | import { Container } from '@react-three/uikit'
+17 | import { useMemo } from 'react'
+18 | import { useFrame } from '@react-three/fiber'
+19 | import { signal } from '@preact/signals-core'
+20 | 
+21 | export function AnimateBackground() {
+22 |     const ref = useRef()
+23 |     useFrame(({ clock }) => {
+24 |         //continuously animate between 0 and 1
+25 |         ref.current.setStyle({ opacity: Math.sin(clock.getElapsedTime()) / 2 + 0.5 })
+26 |     })
+27 |     return <Container ref={ref} backgroundOpacity={0}></Container>
+28 | }
+29 | ```
+30 | 
+31 | Setting executing `setStyle(undefined, true)` resets all changes back to the initial properties provided to the directly to the component.
+32 | 
+33 | ### using signals
+34 | 
+35 | This approach is similar to react-spring and allows to modify the properties of a uikit component without any property diffing. The following code shows how to animate the background opacity on every frame without interfering with react.
+36 | 
+37 | ```jsx showLineNumbers
+38 | import { Container } from '@react-three/uikit'
+39 | import { useMemo } from 'react'
+40 | import { useFrame } from '@react-three/fiber'
+41 | import { signal } from '@preact/signals-core'
+42 | 
+43 | export function AnimateBackground() {
+44 |     const opacity = useMemo(() => signal(0), []);
+45 |     useFrame(({ clock }) => {
+46 |         //continuously animate between 0 and 1
+47 |         opacity.value = Math.sin(clock.getElapsedTime()) / 2 + 0.5
+48 |     })
+49 |     return <Container backgroundOpacity={opacity}></Container>
+50 | }
+51 | ```
+52 | 
+53 | ## Avoid Custom MaterialClasses
+54 | 
+55 | The amount of different Material Classes used, directly influences the amount the draw calls. For every new material class, a new draw call has to be on every render. Therefore, we recommend using as little as possible different custom material classes.
+56 | 
+57 | ## Avoid Many Font Families
+58 | 
+59 | Like the material classes, each new font family directly results in one additional draw call. Therefore, minimizing the amount of font families is recommended for GPU Performance.
+
+
+--------------------------------------------------------------------------------
+/docs/advanced/pitfalls.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Pitfalls
+ 3 | description: Pitfalls to avoid when building userinterfaces with uikit
+ 4 | nav: 11
+ 5 | ---
+ 6 | 
+ 7 | ## Asynchronous Objects inside `Content`
+ 8 | 
+ 9 | The `Content` component measures its content when the component is created. If the content is loaded asynchronous, this measurement will be incorrect. To prevent this behavior, suspense boundaries must be placed correctly.
+10 | 
+11 | <table>
+12 | <tr><td>❌ incorrect</td><td>✅ correct</td></tr>
+13 | <tr>
+14 | <td>
+15 | 
+16 | ```jsx {2,4} showLineNumbers
+17 | <Content>
+18 |     <Suspense>
+19 |         <Gltf src="...">
+20 |     </Suspense>
+21 | </Content>
+22 | ```
+23 | 
+24 | </td>
+25 | <td>
+26 | 
+27 | ```jsx {1,5} showLineNumbers
+28 | <Suspense>
+29 |     <Content>
+30 |         <Gltf src="...">
+31 |     </Content>
+32 | </Suspense>
+33 | ```
+34 | 
+35 | </td>
+36 | </tr>
+37 | </table>
+38 | 
+39 | ## Non-Transparent Objects inside `Content`
+40 | 
+41 | To render objects in the correct order, we are using a custom transparent object sorter. Therefore, all objects inside uikit must either be transparent or must write to the depth buffer and should have a small offset in the z-axis towards its parent.
+
+
+--------------------------------------------------------------------------------
+/docs/advanced/theming.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Theming
+ 3 | description: How to customize the theme of the components from the kits.
+ 4 | nav: 13
+ 5 | ---
+ 6 | 
+ 7 | When installing components from any kit, the `uikit cli` always adds a `theme.tsx` file. The values inside this file can be freely adapted to create a custom theme.
+ 8 | 
+ 9 | For instance, when installing a `Button` from the `default` kit, the primary color of the theme can be modified as seen in the follwing.
+10 | 
+11 | ```js
+12 | export const colors = basedOnPreferredColorScheme({
+13 |   light: {
+14 |     ...
+15 |     primary: "red"
+16 |     ...
+17 |   },
+18 |   ...
+19 | })
+20 | ```
+21 | 
+22 | Now, with the following code
+23 | 
+24 | ```jsx
+25 | import { Canvas } from "@react-three/fiber";
+26 | import { OrbitControls } from "@react-three/drei";
+27 | import { Root, Text, setPreferredColorScheme } from "@react-three/uikit";
+28 | import { createRoot } from "react-dom/client";
+29 | import { Button } from "./components/button";
+30 | import { Defaults } from "./components/theme";
+31 | 
+32 | setPreferredColorScheme("light");
+33 | 
+34 | createRoot(document.getElementById("root")).render(
+35 |   <Canvas camera={{ position: [0, 0, 0.5] }}>
+36 |     <OrbitControls />
+37 |     <Root>
+38 |       <Defaults>
+39 |         <Button>
+40 |           <Text>I am red.</Text>
+41 |         </Button>
+42 |       </Defaults>
+43 |     </Root>
+44 |   </Canvas>
+45 | );
+46 | ```
+47 | 
+48 | this result is achieved.
+49 | 
+50 | 
+51 | <Sandpack
+52 |   template="react-ts"
+53 |   customSetup={{
+54 |     dependencies: {
+55 |       'three': 'latest',
+56 |       '@react-three/fiber': '<9',
+57 |       '@react-three/uikit': 'latest',
+58 |       '@react-three/uikit-default': 'latest',
+59 |       '@react-three/drei': '<10',
+60 |     },
+61 |   }}
+62 |   files={{
+63 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+64 | import { OrbitControls } from "@react-three/drei";
+65 | import { Root, Container, setPreferredColorScheme } from "@react-three/uikit";
+66 | import { Defaults, Button } from "@react-three/uikit-default";
+67 | 
+68 | setPreferredColorScheme("light");
+69 | 
+70 | export default function App() {
+71 |   return (
+72 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }} camera={{ position: [0, 0, 0.5] }}>
+73 |       <OrbitControls />
+74 |       <Root>
+75 |       <Defaults>
+76 |         <Button>
+77 |           <Text>I am red.</Text>
+78 |         </Button>
+79 |       </Defaults>
+80 |     </Root>
+81 |     </Canvas>
+82 |   )
+83 | }`}}
+84 | />
+85 | 
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/button.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Button
+ 3 | description: How to use the Button component from the Apfel kit.
+ 4 | nav: 40
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Container, Text } from '@react-three/uikit'
+23 | import { Card } from "@react-three/uikit-apfel"
+24 | import { Button } from "@react-three/uikit-apfel"
+25 | import { BoxSelect } from '@react-three/uikit-lucide'
+26 | 
+27 | function ButtonsOnCard() {
+28 |   return (
+29 |     <Container flexDirection="column" md={{ flexDirection: 'row' }} alignItems="center" gap={32}>
+30 |       <Card borderRadius={32} padding={16}>
+31 |         <Container flexDirection="column" justifyContent="space-between" alignItems="center" gapRow={16}>
+32 |           <Button variant="icon" size="xs">
+33 |             <BoxSelect />
+34 |           </Button>
+35 |           <Button variant="rect" size="sm" platter>
+36 |             <Text>Label</Text>
+37 |           </Button>
+38 |           <Button variant="rect" size="lg" disabled>
+39 |             <Text>Label</Text>
+40 |           </Button>
+41 |         </Container>
+42 |       </Card>
+43 |     </Container>
+44 |   )
+45 | }
+46 | 
+47 | export default function App() {
+48 |   return (
+49 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+50 |       <ambientLight intensity={0.5} />
+51 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+52 |       <Defaults>
+53 |         <Fullscreen
+54 |           overflow="scroll"
+55 |           scrollbarColor="black"
+56 |           backgroundColor="white"
+57 |           dark={{ backgroundColor: "black" }}
+58 |           flexDirection="column"
+59 |           gap={32}
+60 |           paddingX={32}
+61 |           alignItems="center"
+62 |           padding={32}
+63 |         >
+64 |           <ButtonsOnCard />
+65 |         </Fullscreen>
+66 |       </Defaults>
+67 |     </Canvas>
+68 |   )
+69 | }`}}
+70 | />
+71 | 
+72 | ```bash
+73 | import { Button } from "@react-three/uikit-apfel";
+74 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/card.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Card
+ 3 | description: How to use the Card component from the Apfel kit.
+ 4 | nav: 41
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Card } from "@react-three/uikit-apfel"
+24 | 
+25 | function TextOnCard() {
+26 |   return (
+27 |     <Card borderRadius={32} padding={32} gap={8} flexDirection="column">
+28 |       <Text fontSize={32}>Hello World!</Text>
+29 |       <Text fontSize={24} opacity={0.7}>
+30 |         This is the apfel kit.
+31 |       </Text>
+32 |     </Card>
+33 |   )
+34 | }
+35 | 
+36 | export default function App() {
+37 |   return (
+38 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+39 |       <ambientLight intensity={0.5} />
+40 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+41 |       <Defaults>
+42 |         <Fullscreen
+43 |           overflow="scroll"
+44 |           scrollbarColor="black"
+45 |           backgroundColor="white"
+46 |           dark={{ backgroundColor: "black" }}
+47 |           flexDirection="column"
+48 |           gap={32}
+49 |           paddingX={32}
+50 |           alignItems="center"
+51 |           padding={32}
+52 |         >
+53 |           <TextOnCard />
+54 |         </Fullscreen>
+55 |       </Defaults>
+56 |     </Canvas>
+57 |   )
+58 | }`}}
+59 | />
+60 | 
+61 | ```bash
+62 | import { Card } from "@react-three/uikit-apfel";
+63 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/checkbox.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Checkbox
+ 3 | description: How to use the Checkbox component from the Apfel kit.
+ 4 | nav: 42
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Card } from "@react-three/uikit-apfel"
+23 | import { Checkbox } from "@react-three/uikit-apfel"
+24 | 
+25 | function CheckboxOnCard() {
+26 |   return (
+27 |     <Card borderRadius={32} padding={16} flexDirection="column" gapRow={16}>
+28 |       <Checkbox disabled defaultSelected={false} />
+29 |       <Checkbox defaultSelected={true} />
+30 |     </Card>
+31 |   )
+32 | }
+33 | 
+34 | export default function App() {
+35 |   return (
+36 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+37 |       <ambientLight intensity={0.5} />
+38 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+39 |       <Defaults>
+40 |         <Fullscreen
+41 |           overflow="scroll"
+42 |           scrollbarColor="black"
+43 |           backgroundColor="white"
+44 |           dark={{ backgroundColor: "black" }}
+45 |           flexDirection="column"
+46 |           gap={32}
+47 |           paddingX={32}
+48 |           alignItems="center"
+49 |           padding={32}
+50 |         >
+51 |           <CheckboxOnCard />
+52 |         </Fullscreen>
+53 |       </Defaults>
+54 |     </Canvas>
+55 |   )
+56 | }`}}
+57 | />
+58 | 
+59 | ```bash
+60 | import { Checkbox } from "@react-three/uikit-apfel";
+61 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/input.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Input
+ 3 | description: How to use the Input component from the Apfel kit.
+ 4 | nav: 49
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Card } from "@react-three/uikit-apfel"
+23 | import { Input } from "@react-three/uikit-apfel"
+24 | import { useState } from 'react'
+25 | 
+26 | function InputsOnCard() {
+27 |   const [text, setText] = useState('')
+28 |   return (
+29 |     <Card flexDirection="column" borderRadius={32} padding={16}>
+30 |       <Input value={text} onValueChange={setText} variant="rect" placeholder="Placeholder" />
+31 |     </Card>
+32 |   )
+33 | }
+34 | 
+35 | export default function App() {
+36 |   return (
+37 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+38 |       <ambientLight intensity={0.5} />
+39 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+40 |       <Defaults>
+41 |         <Fullscreen
+42 |           overflow="scroll"
+43 |           scrollbarColor="black"
+44 |           backgroundColor="white"
+45 |           dark={{ backgroundColor: "black" }}
+46 |           flexDirection="column"
+47 |           gap={32}
+48 |           paddingX={32}
+49 |           alignItems="center"
+50 |           padding={32}
+51 |         >
+52 |           <InputsOnCard />
+53 |         </Fullscreen>
+54 |       </Defaults>
+55 |     </Canvas>
+56 |   )
+57 | }`}}
+58 | />
+59 | 
+60 | ```bash
+61 | import { Input } from "@react-three/uikit-apfel";
+62 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/list.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: List
+ 3 | description: How to use the List component from the Apfel kit.
+ 4 | nav: 43
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Text, Container } from '@react-three/uikit'
+23 | import { BoxSelect, ChevronRight, Info } from '@react-three/uikit-lucide'
+24 | import { Card } from "@react-three/uikit-apfel"
+25 | import { List, ListItem } from "@react-three/uikit-apfel"
+26 | import { Button } from "@react-three/uikit-apfel"
+27 | 
+28 | function ListsOnCard() {
+29 |   return (
+30 |     <Container flexDirection="column" gapRow={32} alignItems="center">
+31 |       <Container flexDirection="column" md={{ flexDirection: 'row' }} gap={32}>
+32 |         <Card flexDirection="column" borderRadius={32} padding={16}>
+33 |           <List type="plain" width={400}>
+34 |             <ListItem
+35 |               subtitle={<Text>Subtitle</Text>}
+36 |               trailingAccessory={<ChevronRight height={18} width={18} opacity={0.3} />}
+37 |             >
+38 |               <Text>Title</Text>
+39 |             </ListItem>
+40 |             <ListItem trailingAccessory={<ChevronRight height={18} width={18} opacity={0.3} />}>
+41 |               <Text>Title</Text>
+42 |             </ListItem>
+43 |             <ListItem
+44 |               subtitle={<Text>Subtitle</Text>}
+45 |               selected
+46 |               trailingAccessory={<ChevronRight height={18} width={18} opacity={0.3} />}
+47 |             >
+48 |               <Text>Title</Text>
+49 |             </ListItem>
+50 |           </List>
+51 |         </Card>
+52 |       </Container>
+53 |     </Container>
+54 |   )
+55 | }
+56 | 
+57 | export default function App() {
+58 |   return (
+59 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+60 |       <ambientLight intensity={0.5} />
+61 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+62 |       <Defaults>
+63 |         <Fullscreen
+64 |           overflow="scroll"
+65 |           scrollbarColor="black"
+66 |           backgroundColor="white"
+67 |           dark={{ backgroundColor: "black" }}
+68 |           flexDirection="column"
+69 |           gap={32}
+70 |           paddingX={32}
+71 |           alignItems="center"
+72 |           padding={32}
+73 |         >
+74 |           <ListsOnCard />
+75 |         </Fullscreen>
+76 |       </Defaults>
+77 |     </Canvas>
+78 |   )
+79 | }`}}
+80 | />
+81 | 
+82 | ```bash
+83 | import { List } from "@react-three/uikit-apfel";
+84 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/loading.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Loading
+ 3 | description: How to use the Loading component from the Apfel kit.
+ 4 | nav: 44
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Card } from "@react-three/uikit-apfel"
+23 | import { Loading } from "@react-three/uikit-apfel"
+24 | 
+25 | function LoadingSpinnersOnCard() {
+26 |   return (
+27 |     <Card borderRadius={32} padding={16} flexDirection="row" gapColumn={16}>
+28 |       <Loading size="sm" />
+29 |       <Loading size="md" />
+30 |       <Loading size="lg" />
+31 |     </Card>
+32 |   )
+33 | }
+34 | 
+35 | export default function App() {
+36 |   return (
+37 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+38 |       <ambientLight intensity={0.5} />
+39 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+40 |       <Defaults>
+41 |         <Fullscreen
+42 |           overflow="scroll"
+43 |           scrollbarColor="black"
+44 |           backgroundColor="white"
+45 |           dark={{ backgroundColor: "black" }}
+46 |           flexDirection="column"
+47 |           gap={32}
+48 |           paddingX={32}
+49 |           alignItems="center"
+50 |           padding={32}
+51 |         >
+52 |           <LoadingSpinnersOnCard />
+53 |         </Fullscreen>
+54 |       </Defaults>
+55 |     </Canvas>
+56 |   )
+57 | }`}}
+58 | />
+59 | 
+60 | ```bash
+61 | import { Loading } from "@react-three/uikit-apfel";
+62 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/progress.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Progress
+ 3 | description: How to use the Progress component from the Apfel kit.
+ 4 | nav: 45
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Card } from "@react-three/uikit-apfel"
+23 | import { Progress } from "@react-three/uikit-apfel"
+24 | 
+25 | function ProgressBarsOnCard() {
+26 |   return (
+27 |     <Card width={200} borderRadius={32} padding={16} flexDirection="column" gapRow={16}>
+28 |       <Progress value={0} />
+29 |       <Progress value={0.25} />
+30 |       <Progress value={0.5} />
+31 |       <Progress value={0.75} />
+32 |       <Progress value={1} />
+33 |     </Card>
+34 |   )
+35 | }
+36 | 
+37 | export default function App() {
+38 |   return (
+39 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+40 |       <ambientLight intensity={0.5} />
+41 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+42 |       <Defaults>
+43 |         <Fullscreen
+44 |           overflow="scroll"
+45 |           scrollbarColor="black"
+46 |           backgroundColor="white"
+47 |           dark={{ backgroundColor: "black" }}
+48 |           flexDirection="column"
+49 |           gap={32}
+50 |           paddingX={32}
+51 |           alignItems="center"
+52 |           padding={32}
+53 |         >
+54 |           <ProgressBarsOnCard />
+55 |         </Fullscreen>
+56 |       </Defaults>
+57 |     </Canvas>
+58 |   )
+59 | }`}}
+60 | />
+61 | 
+62 | ```bash
+63 | import { Progress } from "@react-three/uikit-apfel";
+64 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/slider.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Slider
+ 3 | description: How to use the Slider component from the Apfel kit.
+ 4 | nav: 46
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Container } from '@react-three/uikit'
+23 | import { BoxSelect } from '@react-three/uikit-lucide'
+24 | import { Card } from "@react-three/uikit-apfel"
+25 | import { Slider } from "@react-three/uikit-apfel"
+26 | 
+27 | function SlidersOnCard() {
+28 |   return (
+29 |     <Card
+30 |       borderRadius={32}
+31 |       padding={16}
+32 |       flexDirection="column"
+33 |       md={{ flexDirection: 'row' }}
+34 |       gapColumn={16}
+35 |       gapRow={32}
+36 |     >
+37 |       <Container flexDirection="column" gapRow={16} width={250}>
+38 |         <Slider size="xs" defaultValue={25} />
+39 |         <Slider size="sm" defaultValue={50} />
+40 |         <Slider size="md" defaultValue={75} icon={<BoxSelect />} />
+41 |         <Slider size="lg" defaultValue={100} icon={<BoxSelect />} />
+42 |       </Container>
+43 |     </Card>
+44 |   )
+45 | }
+46 | 
+47 | export default function App() {
+48 |   return (
+49 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+50 |       <ambientLight intensity={0.5} />
+51 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+52 |       <Defaults>
+53 |         <Fullscreen
+54 |           overflow="scroll"
+55 |           scrollbarColor="black"
+56 |           backgroundColor="white"
+57 |           dark={{ backgroundColor: "black" }}
+58 |           flexDirection="column"
+59 |           gap={32}
+60 |           paddingX={32}
+61 |           alignItems="center"
+62 |           padding={32}
+63 |         >
+64 |           <SlidersOnCard />
+65 |         </Fullscreen>
+66 |       </Defaults>
+67 |     </Canvas>
+68 |   )
+69 | }`}}
+70 | />
+71 | 
+72 | ```bash
+73 | import { Slider } from "@react-three/uikit-apfel";
+74 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/tab-bar.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Tab-bar
+ 3 | description: How to use the Tab-bar component from the Apfel kit.
+ 4 | nav: 47
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Text } from '@react-three/uikit'
+23 | import { BoxSelect } from '@react-three/uikit-lucide'
+24 | import { TabBar, TabBarItem } from "@react-three/uikit-apfel"
+25 | 
+26 | function TabBarWithText() {
+27 |   return (
+28 |     <TabBar defaultValue="1">
+29 |       <TabBarItem value="1" icon={<BoxSelect />}>
+30 |         <Text>Label</Text>
+31 |       </TabBarItem>
+32 |       <TabBarItem value="2" icon={<BoxSelect />}>
+33 |         <Text>Label</Text>
+34 |       </TabBarItem>
+35 |       <TabBarItem value="3" icon={<BoxSelect />}>
+36 |         <Text>Label</Text>
+37 |       </TabBarItem>
+38 |       <TabBarItem value="4" icon={<BoxSelect />}>
+39 |         <Text>Label</Text>
+40 |       </TabBarItem>
+41 |     </TabBar>
+42 |   )
+43 | }
+44 | 
+45 | export default function App() {
+46 |   return (
+47 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+48 |       <ambientLight intensity={0.5} />
+49 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+50 |       <Defaults>
+51 |         <Fullscreen
+52 |           overflow="scroll"
+53 |           scrollbarColor="black"
+54 |           backgroundColor="white"
+55 |           dark={{ backgroundColor: "black" }}
+56 |           flexDirection="column"
+57 |           gap={32}
+58 |           paddingX={32}
+59 |           alignItems="center"
+60 |           padding={32}
+61 |         >
+62 |           <TabBarWithText />
+63 |         </Fullscreen>
+64 |       </Defaults>
+65 |     </Canvas>
+66 |   )
+67 | }`}}
+68 | />
+69 | 
+70 | ```bash
+71 | import { Tab-bar } from "@react-three/uikit-apfel";
+72 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/apfel-kit/tabs.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Tabs
+ 3 | description: How to use the Tabs component from the Apfel kit.
+ 4 | nav: 48
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-apfel': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults } from "@react-three/uikit-apfel";
+22 | import { Text } from '@react-three/uikit'
+23 | import { BoxSelect } from '@react-three/uikit-lucide'
+24 | import { Card } from "@react-three/uikit-apfel"
+25 | import { Tabs, TabsButton } from "@react-three/uikit-apfel"
+26 | 
+27 | function TabsOnCard() {
+28 |   return (
+29 |     <Card borderRadius={32} padding={16} flexDirection="column" alignItems="flex-start" gapRow={16}>
+30 |       <Tabs defaultValue="1">
+31 |         <TabsButton value="1">
+32 |           <Text>Label</Text>
+33 |         </TabsButton>
+34 |         <TabsButton value="2">
+35 |           <Text>Label</Text>
+36 |         </TabsButton>
+37 |         <TabsButton value="3">
+38 |           <Text>Label</Text>
+39 |         </TabsButton>
+40 |         <TabsButton value="4">
+41 |           <Text>Long Label</Text>
+42 |         </TabsButton>
+43 |         <TabsButton value="5" disabled>
+44 |           <Text>Disabled</Text>
+45 |         </TabsButton>
+46 |       </Tabs>
+47 |     </Card>
+48 |   )
+49 | }
+50 | 
+51 | export default function App() {
+52 |   return (
+53 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+54 |       <ambientLight intensity={0.5} />
+55 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+56 |       <Defaults>
+57 |         <Fullscreen
+58 |           overflow="scroll"
+59 |           scrollbarColor="black"
+60 |           backgroundColor="white"
+61 |           dark={{ backgroundColor: "black" }}
+62 |           flexDirection="column"
+63 |           gap={32}
+64 |           paddingX={32}
+65 |           alignItems="center"
+66 |           padding={32}
+67 |         >
+68 |           <TabsOnCard />
+69 |         </Fullscreen>
+70 |       </Defaults>
+71 |     </Canvas>
+72 |   )
+73 | }`}}
+74 | />
+75 | 
+76 | ```bash
+77 | import { Tabs } from "@react-three/uikit-apfel";
+78 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/accordion.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Accordion
+ 3 | description: How to use the Accordion component from the Default kit.
+ 4 | nav: 17
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text, Container } from '@react-three/uikit'
+23 | import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@react-three/uikit-default"
+24 | 
+25 | //TODO: type="single" collapsible
+26 | function AccordionDemo() {
+27 |   return (
+28 |     <Container flexDirection="column" width={300}>
+29 |       <Accordion>
+30 |         <AccordionItem value="item-1">
+31 |           <AccordionTrigger>
+32 |             <Text>Is it accessible?</Text>
+33 |           </AccordionTrigger>
+34 |           <AccordionContent>
+35 |             <Text>Yes. It adheres to the WAI-ARIA design pattern.</Text>
+36 |           </AccordionContent>
+37 |         </AccordionItem>
+38 |         <AccordionItem value="item-2">
+39 |           <AccordionTrigger>
+40 |             <Text>Is it styled?</Text>
+41 |           </AccordionTrigger>
+42 |           <AccordionContent>
+43 |             <Text>Yes. It comes with default styles that matches the other components&apos; aesthetic.</Text>
+44 |           </AccordionContent>
+45 |         </AccordionItem>
+46 |         <AccordionItem value="item-3">
+47 |           <AccordionTrigger>
+48 |             <Text>Is it animated?</Text>
+49 |           </AccordionTrigger>
+50 |           <AccordionContent>
+51 |             <Text>Yes. It&apos;s animated by default, but you can disable it if you prefer.</Text>
+52 |           </AccordionContent>
+53 |         </AccordionItem>
+54 |       </Accordion>
+55 |     </Container>
+56 |   )
+57 | }
+58 | 
+59 | export default function App() {
+60 |   return (
+61 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+62 |       <ambientLight intensity={0.5} />
+63 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+64 |       <Defaults>
+65 |         <Fullscreen
+66 |           overflow="scroll"
+67 |           scrollbarColor="black"
+68 |           backgroundColor="white"
+69 |           dark={{ backgroundColor: "black" }}
+70 |           flexDirection="column"
+71 |           gap={32}
+72 |           paddingX={32}
+73 |           alignItems="center"
+74 |           padding={32}
+75 |         >
+76 |           <DialogAnchor><AccordionDemo /></DialogAnchor>
+77 |         </Fullscreen>
+78 |       </Defaults>
+79 |     </Canvas>
+80 |   )
+81 | }`}}
+82 | />
+83 | 
+84 | ```bash
+85 | import { Accordion } from "@react-three/uikit-default";
+86 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/alert-dialog.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Alert-dialog
+ 3 | description: How to use the Alert-dialog component from the Default kit.
+ 4 | nav: 19
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Button } from "@react-three/uikit-default"
+24 | import {
+25 |   AlertDialog,
+26 |   AlertDialogAction,
+27 |   AlertDialogCancel,
+28 |   AlertDialogContent,
+29 |   AlertDialogDescription,
+30 |   AlertDialogFooter,
+31 |   AlertDialogHeader,
+32 |   AlertDialogTitle,
+33 |   AlertDialogTrigger,
+34 | } from "@react-three/uikit-default"
+35 | 
+36 | function AlertDialogDemo() {
+37 |   return (
+38 |     <AlertDialog>
+39 |       <AlertDialogTrigger>
+40 |         <Button variant="outline">
+41 |           <Text>Show Dialog</Text>
+42 |         </Button>
+43 |       </AlertDialogTrigger>
+44 |       <AlertDialogContent>
+45 |         <AlertDialogHeader>
+46 |           <AlertDialogTitle>
+47 |             <Text>Are you absolutely sure?</Text>
+48 |           </AlertDialogTitle>
+49 |           <AlertDialogDescription>
+50 |             <Text>
+51 |               This action cannot be undone. This will permanently delete your account and remove your data from our
+52 |               servers.
+53 |             </Text>
+54 |           </AlertDialogDescription>
+55 |         </AlertDialogHeader>
+56 |         <AlertDialogFooter>
+57 |           <AlertDialogCancel>
+58 |             <Text>Cancel</Text>
+59 |           </AlertDialogCancel>
+60 |           <AlertDialogAction>
+61 |             <Text>Continue</Text>
+62 |           </AlertDialogAction>
+63 |         </AlertDialogFooter>
+64 |       </AlertDialogContent>
+65 |     </AlertDialog>
+66 |   )
+67 | }
+68 | 
+69 | export default function App() {
+70 |   return (
+71 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+72 |       <ambientLight intensity={0.5} />
+73 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+74 |       <Defaults>
+75 |         <Fullscreen
+76 |           overflow="scroll"
+77 |           scrollbarColor="black"
+78 |           backgroundColor="white"
+79 |           dark={{ backgroundColor: "black" }}
+80 |           flexDirection="column"
+81 |           gap={32}
+82 |           paddingX={32}
+83 |           alignItems="center"
+84 |           padding={32}
+85 |         >
+86 |           <DialogAnchor><AlertDialogDemo /></DialogAnchor>
+87 |         </Fullscreen>
+88 |       </Defaults>
+89 |     </Canvas>
+90 |   )
+91 | }`}}
+92 | />
+93 | 
+94 | ```bash
+95 | import { Alert-dialog } from "@react-three/uikit-default";
+96 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/alert.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Alert
+ 3 | description: How to use the Alert component from the Default kit.
+ 4 | nav: 18
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Terminal } from '@react-three/uikit-lucide'
+24 | import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@react-three/uikit-default"
+25 | 
+26 | function AlertDemo() {
+27 |   return (
+28 |     <Alert maxWidth={500}>
+29 |       <AlertIcon>
+30 |         <Terminal width={16} height={16} />
+31 |       </AlertIcon>
+32 |       <AlertTitle>
+33 |         <Text>Error</Text>
+34 |       </AlertTitle>
+35 |       <AlertDescription>
+36 |         <Text>You can add components to your app using the cli.</Text>
+37 |       </AlertDescription>
+38 |     </Alert>
+39 |   )
+40 | }
+41 | 
+42 | export default function App() {
+43 |   return (
+44 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+45 |       <ambientLight intensity={0.5} />
+46 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+47 |       <Defaults>
+48 |         <Fullscreen
+49 |           overflow="scroll"
+50 |           scrollbarColor="black"
+51 |           backgroundColor="white"
+52 |           dark={{ backgroundColor: "black" }}
+53 |           flexDirection="column"
+54 |           gap={32}
+55 |           paddingX={32}
+56 |           alignItems="center"
+57 |           padding={32}
+58 |         >
+59 |           <DialogAnchor><AlertDemo /></DialogAnchor>
+60 |         </Fullscreen>
+61 |       </Defaults>
+62 |     </Canvas>
+63 |   )
+64 | }`}}
+65 | />
+66 | 
+67 | ```bash
+68 | import { Alert } from "@react-three/uikit-default";
+69 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/avatar.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Avatar
+ 3 | description: How to use the Avatar component from the Default kit.
+ 4 | nav: 20
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Container } from '@react-three/uikit'
+23 | import { Avatar } from "@react-three/uikit-default"
+24 | 
+25 | function AvatarDemo() {
+26 |   return (
+27 |     <Container alignItems="center">
+28 |       <Avatar src="https://picsum.photos/100/100" />
+29 |     </Container>
+30 |   )
+31 | }
+32 | 
+33 | export default function App() {
+34 |   return (
+35 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+36 |       <ambientLight intensity={0.5} />
+37 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+38 |       <Defaults>
+39 |         <Fullscreen
+40 |           overflow="scroll"
+41 |           scrollbarColor="black"
+42 |           backgroundColor="white"
+43 |           dark={{ backgroundColor: "black" }}
+44 |           flexDirection="column"
+45 |           gap={32}
+46 |           paddingX={32}
+47 |           alignItems="center"
+48 |           padding={32}
+49 |         >
+50 |           <DialogAnchor><AvatarDemo /></DialogAnchor>
+51 |         </Fullscreen>
+52 |       </Defaults>
+53 |     </Canvas>
+54 |   )
+55 | }`}}
+56 | />
+57 | 
+58 | ```bash
+59 | import { Avatar } from "@react-three/uikit-default";
+60 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/badge.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Badge
+ 3 | description: How to use the Badge component from the Default kit.
+ 4 | nav: 21
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Badge } from "@react-three/uikit-default"
+24 | 
+25 | function BadgeDemo() {
+26 |   return (
+27 |     <Badge>
+28 |       <Text>Badge</Text>
+29 |     </Badge>
+30 |   )
+31 | }
+32 | 
+33 | export default function App() {
+34 |   return (
+35 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+36 |       <ambientLight intensity={0.5} />
+37 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+38 |       <Defaults>
+39 |         <Fullscreen
+40 |           overflow="scroll"
+41 |           scrollbarColor="black"
+42 |           backgroundColor="white"
+43 |           dark={{ backgroundColor: "black" }}
+44 |           flexDirection="column"
+45 |           gap={32}
+46 |           paddingX={32}
+47 |           alignItems="center"
+48 |           padding={32}
+49 |         >
+50 |           <DialogAnchor><BadgeDemo /></DialogAnchor>
+51 |         </Fullscreen>
+52 |       </Defaults>
+53 |     </Canvas>
+54 |   )
+55 | }`}}
+56 | />
+57 | 
+58 | ```bash
+59 | import { Badge } from "@react-three/uikit-default";
+60 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/button.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Button
+ 3 | description: How to use the Button component from the Default kit.
+ 4 | nav: 22
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { ChevronRight } from '@react-three/uikit-lucide'
+23 | import { Button } from "@react-three/uikit-default"
+24 | 
+25 | function ButtonDemo() {
+26 |   return (
+27 |     <Button variant="outline" size="icon">
+28 |       <ChevronRight width={16} height={16} />
+29 |     </Button>
+30 |   )
+31 | }
+32 | 
+33 | export default function App() {
+34 |   return (
+35 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+36 |       <ambientLight intensity={0.5} />
+37 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+38 |       <Defaults>
+39 |         <Fullscreen
+40 |           overflow="scroll"
+41 |           scrollbarColor="black"
+42 |           backgroundColor="white"
+43 |           dark={{ backgroundColor: "black" }}
+44 |           flexDirection="column"
+45 |           gap={32}
+46 |           paddingX={32}
+47 |           alignItems="center"
+48 |           padding={32}
+49 |         >
+50 |           <DialogAnchor><ButtonDemo /></DialogAnchor>
+51 |         </Fullscreen>
+52 |       </Defaults>
+53 |     </Canvas>
+54 |   )
+55 | }`}}
+56 | />
+57 | 
+58 | ```bash
+59 | import { Button } from "@react-three/uikit-default";
+60 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/card.mdx:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Card
+  3 | description: How to use the Card component from the Default kit.
+  4 | nav: 23
+  5 | ---
+  6 | 
+  7 | <Sandpack
+  8 |   template="react-ts"
+  9 |   customSetup={{
+ 10 |     dependencies: {
+ 11 |       'three': 'latest',
+ 12 |       '@react-three/fiber': '<9',
+ 13 |       '@react-three/uikit': 'latest',
+ 14 |       '@react-three/uikit-default': 'latest',
+ 15 |       '@react-three/drei': '<10',
+ 16 |     },
+ 17 |   }}
+ 18 |   files={{
+ 19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+ 20 | import { Fullscreen } from "@react-three/uikit";
+ 21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+ 22 | import { Text, Container } from '@react-three/uikit'
+ 23 | import { BellRing, Check } from '@react-three/uikit-lucide'
+ 24 | import { colors } from "@react-three/uikit-default"
+ 25 | import { Button } from "@react-three/uikit-default"
+ 26 | import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@react-three/uikit-default"
+ 27 | import { Switch } from "@react-three/uikit-default"
+ 28 | 
+ 29 | const notifications = [
+ 30 |   {
+ 31 |     title: 'Your call has been confirmed.',
+ 32 |     description: '1 hour ago',
+ 33 |   },
+ 34 |   {
+ 35 |     title: 'You have a new message!',
+ 36 |     description: '1 hour ago',
+ 37 |   },
+ 38 |   {
+ 39 |     title: 'Your subscription is expiring soon!',
+ 40 |     description: '2 hours ago',
+ 41 |   },
+ 42 | ]
+ 43 | 
+ 44 | function CardDemo() {
+ 45 |   return (
+ 46 |     <Card width={380}>
+ 47 |       <CardHeader>
+ 48 |         <CardTitle>
+ 49 |           <Text>Notifications</Text>
+ 50 |         </CardTitle>
+ 51 |         <CardDescription>
+ 52 |           <Text>You have 3 unread messages.</Text>
+ 53 |         </CardDescription>
+ 54 |       </CardHeader>
+ 55 |       <CardContent flexDirection="column" gap={16}>
+ 56 |         <Container flexDirection="row" alignItems="center" gap={16} borderRadius={6} borderWidth={1} padding={16}>
+ 57 |           <BellRing />
+ 58 |           <Container flexDirection="column" gap={4}>
+ 59 |             <Text fontSize={14} lineHeight="100%">
+ 60 |               Push Notifications
+ 61 |             </Text>
+ 62 |             <Text fontSize={14} lineHeight={20} color={colors.mutedForeground}>
+ 63 |               Send notifications to device.
+ 64 |             </Text>
+ 65 |           </Container>
+ 66 |           <Switch />
+ 67 |         </Container>
+ 68 |         <Container flexDirection="column">
+ 69 |           {notifications.map((notification, index) => (
+ 70 |             <Container
+ 71 |               key={index}
+ 72 |               marginBottom={index === notifications.length - 1 ? 0 : 16}
+ 73 |               paddingBottom={index === notifications.length - 1 ? 0 : 16}
+ 74 |               alignItems="flex-start"
+ 75 |               flexDirection="row"
+ 76 |               gap={17}
+ 77 |             >
+ 78 |               <Container height={8} width={8} transformTranslateY={4} borderRadius={1000} backgroundColor={0x0ea5e9} />
+ 79 |               <Container flexDirection="column" gap={4}>
+ 80 |                 <Text fontSize={14} lineHeight="100%">
+ 81 |                   {notification.title}
+ 82 |                 </Text>
+ 83 |                 <Text fontSize={14} lineHeight={20} color={colors.mutedForeground}>
+ 84 |                   {notification.description}
+ 85 |                 </Text>
+ 86 |               </Container>
+ 87 |             </Container>
+ 88 |           ))}
+ 89 |         </Container>
+ 90 |       </CardContent>
+ 91 |       <CardFooter>
+ 92 |         <Button flexDirection="row" width="100%">
+ 93 |           <Check marginRight={8} height={16} width={16} />
+ 94 |           <Text>Mark all as read</Text>
+ 95 |         </Button>
+ 96 |       </CardFooter>
+ 97 |     </Card>
+ 98 |   )
+ 99 | }
+100 | 
+101 | export default function App() {
+102 |   return (
+103 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+104 |       <ambientLight intensity={0.5} />
+105 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+106 |       <Defaults>
+107 |         <Fullscreen
+108 |           overflow="scroll"
+109 |           scrollbarColor="black"
+110 |           backgroundColor="white"
+111 |           dark={{ backgroundColor: "black" }}
+112 |           flexDirection="column"
+113 |           gap={32}
+114 |           paddingX={32}
+115 |           alignItems="center"
+116 |           padding={32}
+117 |         >
+118 |           <DialogAnchor><CardDemo /></DialogAnchor>
+119 |         </Fullscreen>
+120 |       </Defaults>
+121 |     </Canvas>
+122 |   )
+123 | }`}}
+124 | />
+125 | 
+126 | ```bash
+127 | import { Card } from "@react-three/uikit-default";
+128 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/checkbox.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Checkbox
+ 3 | description: How to use the Checkbox component from the Default kit.
+ 4 | nav: 24
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text, Container } from '@react-three/uikit'
+23 | import { Checkbox } from "@react-three/uikit-default"
+24 | import { Label } from "@react-three/uikit-default"
+25 | 
+26 | function CheckboxDemo() {
+27 |   return (
+28 |     <Container flexDirection="row" gap={8} alignItems="center">
+29 |       <Checkbox />
+30 |       <Label>
+31 |         <Text>Accept terms and conditions</Text>
+32 |       </Label>
+33 |     </Container>
+34 |   )
+35 | }
+36 | 
+37 | export default function App() {
+38 |   return (
+39 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+40 |       <ambientLight intensity={0.5} />
+41 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+42 |       <Defaults>
+43 |         <Fullscreen
+44 |           overflow="scroll"
+45 |           scrollbarColor="black"
+46 |           backgroundColor="white"
+47 |           dark={{ backgroundColor: "black" }}
+48 |           flexDirection="column"
+49 |           gap={32}
+50 |           paddingX={32}
+51 |           alignItems="center"
+52 |           padding={32}
+53 |         >
+54 |           <DialogAnchor><CheckboxDemo /></DialogAnchor>
+55 |         </Fullscreen>
+56 |       </Defaults>
+57 |     </Canvas>
+58 |   )
+59 | }`}}
+60 | />
+61 | 
+62 | ```bash
+63 | import { Checkbox } from "@react-three/uikit-default";
+64 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/dialog.mdx:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Dialog
+  3 | description: How to use the Dialog component from the Default kit.
+  4 | nav: 25
+  5 | ---
+  6 | 
+  7 | <Sandpack
+  8 |   template="react-ts"
+  9 |   customSetup={{
+ 10 |     dependencies: {
+ 11 |       'three': 'latest',
+ 12 |       '@react-three/fiber': '<9',
+ 13 |       '@react-three/uikit': 'latest',
+ 14 |       '@react-three/uikit-default': 'latest',
+ 15 |       '@react-three/drei': '<10',
+ 16 |     },
+ 17 |   }}
+ 18 |   files={{
+ 19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+ 20 | import { Fullscreen } from "@react-three/uikit";
+ 21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+ 22 | import { Text, Container } from '@react-three/uikit'
+ 23 | import { Button } from "@react-three/uikit-default"
+ 24 | import { Label } from "@react-three/uikit-default"
+ 25 | import {
+ 26 |   Dialog,
+ 27 |   DialogContent,
+ 28 |   DialogDescription,
+ 29 |   DialogFooter,
+ 30 |   DialogHeader,
+ 31 |   DialogTitle,
+ 32 |   DialogTrigger,
+ 33 | } from "@react-three/uikit-default"
+ 34 | 
+ 35 | function DialogDemo() {
+ 36 |   return (
+ 37 |     <Dialog>
+ 38 |       <DialogTrigger>
+ 39 |         <Button variant="outline">
+ 40 |           <Text>Edit Profile</Text>
+ 41 |         </Button>
+ 42 |       </DialogTrigger>
+ 43 |       <DialogContent sm={{ maxWidth: 425 }}>
+ 44 |         <DialogHeader>
+ 45 |           <DialogTitle>
+ 46 |             <Text>Edit profile</Text>
+ 47 |           </DialogTitle>
+ 48 |           <DialogDescription>
+ 49 |             <Text>Make changes to your profile here. Click save when you're done.</Text>
+ 50 |           </DialogDescription>
+ 51 |         </DialogHeader>
+ 52 |         <Container flexDirection="column" alignItems="center" gap={16} paddingY={16}>
+ 53 |           <Container alignItems="center" gap={16}>
+ 54 |             <Label>
+ 55 |               <Text textAlign="right">Name</Text>
+ 56 |             </Label>
+ 57 |             {/*<Input defaultValue="Pedro Duarte" className="col-span-3" />*/}
+ 58 |           </Container>
+ 59 |           <Container alignItems="center" gap={16}>
+ 60 |             <Label>
+ 61 |               <Text textAlign="right">Username</Text>
+ 62 |             </Label>
+ 63 |             {/*<Input id="username" defaultValue="@peduarte" className="col-span-3" />*/}
+ 64 |           </Container>
+ 65 |         </Container>
+ 66 |         <DialogFooter>
+ 67 |           <Button>
+ 68 |             <Text>Save changes</Text>
+ 69 |           </Button>
+ 70 |         </DialogFooter>
+ 71 |       </DialogContent>
+ 72 |     </Dialog>
+ 73 |   )
+ 74 | }
+ 75 | 
+ 76 | export default function App() {
+ 77 |   return (
+ 78 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+ 79 |       <ambientLight intensity={0.5} />
+ 80 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+ 81 |       <Defaults>
+ 82 |         <Fullscreen
+ 83 |           overflow="scroll"
+ 84 |           scrollbarColor="black"
+ 85 |           backgroundColor="white"
+ 86 |           dark={{ backgroundColor: "black" }}
+ 87 |           flexDirection="column"
+ 88 |           gap={32}
+ 89 |           paddingX={32}
+ 90 |           alignItems="center"
+ 91 |           padding={32}
+ 92 |         >
+ 93 |           <DialogAnchor><DialogDemo /></DialogAnchor>
+ 94 |         </Fullscreen>
+ 95 |       </Defaults>
+ 96 |     </Canvas>
+ 97 |   )
+ 98 | }`}}
+ 99 | />
+100 | 
+101 | ```bash
+102 | import { Dialog } from "@react-three/uikit-default";
+103 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/input.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Input
+ 3 | description: How to use the Input component from the Default kit.
+ 4 | nav: 38
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Input } from "@react-three/uikit-default"
+23 | 
+24 | function InputDemo() {
+25 |   return <Input width={200} placeholder="Email" />
+26 | }
+27 | 
+28 | export default function App() {
+29 |   return (
+30 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+31 |       <ambientLight intensity={0.5} />
+32 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+33 |       <Defaults>
+34 |         <Fullscreen
+35 |           overflow="scroll"
+36 |           scrollbarColor="black"
+37 |           backgroundColor="white"
+38 |           dark={{ backgroundColor: "black" }}
+39 |           flexDirection="column"
+40 |           gap={32}
+41 |           paddingX={32}
+42 |           alignItems="center"
+43 |           padding={32}
+44 |         >
+45 |           <DialogAnchor><InputDemo /></DialogAnchor>
+46 |         </Fullscreen>
+47 |       </Defaults>
+48 |     </Canvas>
+49 |   )
+50 | }`}}
+51 | />
+52 | 
+53 | ```bash
+54 | import { Input } from "@react-three/uikit-default";
+55 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/label.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Label
+ 3 | description: How to use the Label component from the Default kit.
+ 4 | nav: 26
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text, Container } from '@react-three/uikit'
+23 | import { Checkbox } from "@react-three/uikit-default"
+24 | import { Label } from "@react-three/uikit-default"
+25 | 
+26 | function LabelDemo() {
+27 |   return (
+28 |     <Container flexDirection="row" gap={8} alignItems="center">
+29 |       <Checkbox />
+30 |       <Label>
+31 |         <Text>Accept terms and conditions</Text>
+32 |       </Label>
+33 |     </Container>
+34 |   )
+35 | }
+36 | 
+37 | export default function App() {
+38 |   return (
+39 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+40 |       <ambientLight intensity={0.5} />
+41 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+42 |       <Defaults>
+43 |         <Fullscreen
+44 |           overflow="scroll"
+45 |           scrollbarColor="black"
+46 |           backgroundColor="white"
+47 |           dark={{ backgroundColor: "black" }}
+48 |           flexDirection="column"
+49 |           gap={32}
+50 |           paddingX={32}
+51 |           alignItems="center"
+52 |           padding={32}
+53 |         >
+54 |           <DialogAnchor><LabelDemo /></DialogAnchor>
+55 |         </Fullscreen>
+56 |       </Defaults>
+57 |     </Canvas>
+58 |   )
+59 | }`}}
+60 | />
+61 | 
+62 | ```bash
+63 | import { Label } from "@react-three/uikit-default";
+64 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/pagination.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Pagination
+ 3 | description: How to use the Pagination component from the Default kit.
+ 4 | nav: 27
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import {
+24 |   Pagination,
+25 |   PaginationContent,
+26 |   PaginationEllipsis,
+27 |   PaginationItem,
+28 |   PaginationLink,
+29 |   PaginationNext,
+30 |   PaginationPrevious,
+31 | } from "@react-three/uikit-default"
+32 | 
+33 | function PaginationDemo() {
+34 |   return (
+35 |     <Pagination>
+36 |       <PaginationContent>
+37 |         <PaginationItem>
+38 |           <PaginationPrevious />
+39 |         </PaginationItem>
+40 |         <PaginationItem>
+41 |           <PaginationLink>
+42 |             <Text>1</Text>
+43 |           </PaginationLink>
+44 |         </PaginationItem>
+45 |         <PaginationItem>
+46 |           <PaginationLink isActive>
+47 |             <Text>2</Text>
+48 |           </PaginationLink>
+49 |         </PaginationItem>
+50 |         <PaginationItem>
+51 |           <PaginationLink>
+52 |             <Text>3</Text>
+53 |           </PaginationLink>
+54 |         </PaginationItem>
+55 |         <PaginationItem>
+56 |           <PaginationEllipsis />
+57 |         </PaginationItem>
+58 |         <PaginationItem>
+59 |           <PaginationNext />
+60 |         </PaginationItem>
+61 |       </PaginationContent>
+62 |     </Pagination>
+63 |   )
+64 | }
+65 | 
+66 | export default function App() {
+67 |   return (
+68 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+69 |       <ambientLight intensity={0.5} />
+70 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+71 |       <Defaults>
+72 |         <Fullscreen
+73 |           overflow="scroll"
+74 |           scrollbarColor="black"
+75 |           backgroundColor="white"
+76 |           dark={{ backgroundColor: "black" }}
+77 |           flexDirection="column"
+78 |           gap={32}
+79 |           paddingX={32}
+80 |           alignItems="center"
+81 |           padding={32}
+82 |         >
+83 |           <DialogAnchor><PaginationDemo /></DialogAnchor>
+84 |         </Fullscreen>
+85 |       </Defaults>
+86 |     </Canvas>
+87 |   )
+88 | }`}}
+89 | />
+90 | 
+91 | ```bash
+92 | import { Pagination } from "@react-three/uikit-default";
+93 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/progress.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Progress
+ 3 | description: How to use the Progress component from the Default kit.
+ 4 | nav: 28
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { useEffect, useState } from 'react'
+23 | import { Progress } from "@react-three/uikit-default"
+24 | 
+25 | function ProgressDemo() {
+26 |   const [progress, setProgress] = useState(13)
+27 | 
+28 |   useEffect(() => {
+29 |     const timer = setTimeout(() => setProgress(66), 500)
+30 |     return () => clearTimeout(timer)
+31 |   }, [])
+32 | 
+33 |   return <Progress value={progress} width={200} />
+34 | }
+35 | 
+36 | export default function App() {
+37 |   return (
+38 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+39 |       <ambientLight intensity={0.5} />
+40 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+41 |       <Defaults>
+42 |         <Fullscreen
+43 |           overflow="scroll"
+44 |           scrollbarColor="black"
+45 |           backgroundColor="white"
+46 |           dark={{ backgroundColor: "black" }}
+47 |           flexDirection="column"
+48 |           gap={32}
+49 |           paddingX={32}
+50 |           alignItems="center"
+51 |           padding={32}
+52 |         >
+53 |           <DialogAnchor><ProgressDemo /></DialogAnchor>
+54 |         </Fullscreen>
+55 |       </Defaults>
+56 |     </Canvas>
+57 |   )
+58 | }`}}
+59 | />
+60 | 
+61 | ```bash
+62 | import { Progress } from "@react-three/uikit-default";
+63 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/radio-group.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Radio-group
+ 3 | description: How to use the Radio-group component from the Default kit.
+ 4 | nav: 29
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Label } from "@react-three/uikit-default"
+24 | import { RadioGroup, RadioGroupItem } from "@react-three/uikit-default"
+25 | 
+26 | function RadioGroupDemo() {
+27 |   return (
+28 |     <RadioGroup defaultValue="comfortable">
+29 |       <RadioGroupItem value="default">
+30 |         <Label>
+31 |           <Text>Default</Text>
+32 |         </Label>
+33 |       </RadioGroupItem>
+34 |       <RadioGroupItem value="comfortable">
+35 |         <Label>
+36 |           <Text>Comfortable</Text>
+37 |         </Label>
+38 |       </RadioGroupItem>
+39 |       <RadioGroupItem value="compact">
+40 |         <Label>
+41 |           <Text>Compact</Text>
+42 |         </Label>
+43 |       </RadioGroupItem>
+44 |     </RadioGroup>
+45 |   )
+46 | }
+47 | 
+48 | export default function App() {
+49 |   return (
+50 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+51 |       <ambientLight intensity={0.5} />
+52 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+53 |       <Defaults>
+54 |         <Fullscreen
+55 |           overflow="scroll"
+56 |           scrollbarColor="black"
+57 |           backgroundColor="white"
+58 |           dark={{ backgroundColor: "black" }}
+59 |           flexDirection="column"
+60 |           gap={32}
+61 |           paddingX={32}
+62 |           alignItems="center"
+63 |           padding={32}
+64 |         >
+65 |           <DialogAnchor><RadioGroupDemo /></DialogAnchor>
+66 |         </Fullscreen>
+67 |       </Defaults>
+68 |     </Canvas>
+69 |   )
+70 | }`}}
+71 | />
+72 | 
+73 | ```bash
+74 | import { Radio-group } from "@react-three/uikit-default";
+75 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/separator.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Separator
+ 3 | description: How to use the Separator component from the Default kit.
+ 4 | nav: 30
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { DefaultProperties, Text, Container } from '@react-three/uikit'
+23 | import { colors } from "@react-three/uikit-default"
+24 | import { Separator } from "@react-three/uikit-default"
+25 | 
+26 | function SeparatorDemo() {
+27 |   return (
+28 |     <Container width={300} flexDirection="column">
+29 |       <Container flexDirection="column" gap={4}>
+30 |         <Text fontSize={14} lineHeight="100%">
+31 |           Radix Primitives
+32 |         </Text>
+33 |         <Text fontSize={14} lineHeight={20} color={colors.mutedForeground}>
+34 |           An open-source UI component library.
+35 |         </Text>
+36 |       </Container>
+37 |       <Separator marginY={16} />
+38 |       <Container flexDirection="row" height={20} alignItems="center" gap={16}>
+39 |         <DefaultProperties fontSize={14} lineHeight={20}>
+40 |           <Text>Blog</Text>
+41 |           <Separator orientation="vertical" />
+42 |           <Text>Docs</Text>
+43 |           <Separator orientation="vertical" />
+44 |           <Text>Source</Text>
+45 |         </DefaultProperties>
+46 |       </Container>
+47 |     </Container>
+48 |   )
+49 | }
+50 | 
+51 | export default function App() {
+52 |   return (
+53 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+54 |       <ambientLight intensity={0.5} />
+55 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+56 |       <Defaults>
+57 |         <Fullscreen
+58 |           overflow="scroll"
+59 |           scrollbarColor="black"
+60 |           backgroundColor="white"
+61 |           dark={{ backgroundColor: "black" }}
+62 |           flexDirection="column"
+63 |           gap={32}
+64 |           paddingX={32}
+65 |           alignItems="center"
+66 |           padding={32}
+67 |         >
+68 |           <DialogAnchor><SeparatorDemo /></DialogAnchor>
+69 |         </Fullscreen>
+70 |       </Defaults>
+71 |     </Canvas>
+72 |   )
+73 | }`}}
+74 | />
+75 | 
+76 | ```bash
+77 | import { Separator } from "@react-three/uikit-default";
+78 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/skeleton.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Skeleton
+ 3 | description: How to use the Skeleton component from the Default kit.
+ 4 | nav: 31
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Container } from '@react-three/uikit'
+23 | import { Skeleton } from "@react-three/uikit-default"
+24 | 
+25 | function SkeletonDemo() {
+26 |   return (
+27 |     <Container flexDirection="row" alignItems="center" gap={16}>
+28 |       <Skeleton borderRadius={1000} height={48} width={48} />
+29 |       <Container flexDirection="column" gap={8}>
+30 |         <Skeleton height={16} width={250} />
+31 |         <Skeleton height={16} width={200} />
+32 |       </Container>
+33 |     </Container>
+34 |   )
+35 | }
+36 | 
+37 | export default function App() {
+38 |   return (
+39 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+40 |       <ambientLight intensity={0.5} />
+41 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+42 |       <Defaults>
+43 |         <Fullscreen
+44 |           overflow="scroll"
+45 |           scrollbarColor="black"
+46 |           backgroundColor="white"
+47 |           dark={{ backgroundColor: "black" }}
+48 |           flexDirection="column"
+49 |           gap={32}
+50 |           paddingX={32}
+51 |           alignItems="center"
+52 |           padding={32}
+53 |         >
+54 |           <DialogAnchor><SkeletonDemo /></DialogAnchor>
+55 |         </Fullscreen>
+56 |       </Defaults>
+57 |     </Canvas>
+58 |   )
+59 | }`}}
+60 | />
+61 | 
+62 | ```bash
+63 | import { Skeleton } from "@react-three/uikit-default";
+64 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/slider.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Slider
+ 3 | description: How to use the Slider component from the Default kit.
+ 4 | nav: 32
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Slider } from "@react-three/uikit-default"
+23 | 
+24 | function SliderDemo() {
+25 |   return <Slider defaultValue={50} max={100} step={1} width={300} />
+26 | }
+27 | 
+28 | export default function App() {
+29 |   return (
+30 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+31 |       <ambientLight intensity={0.5} />
+32 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+33 |       <Defaults>
+34 |         <Fullscreen
+35 |           overflow="scroll"
+36 |           scrollbarColor="black"
+37 |           backgroundColor="white"
+38 |           dark={{ backgroundColor: "black" }}
+39 |           flexDirection="column"
+40 |           gap={32}
+41 |           paddingX={32}
+42 |           alignItems="center"
+43 |           padding={32}
+44 |         >
+45 |           <DialogAnchor><SliderDemo /></DialogAnchor>
+46 |         </Fullscreen>
+47 |       </Defaults>
+48 |     </Canvas>
+49 |   )
+50 | }`}}
+51 | />
+52 | 
+53 | ```bash
+54 | import { Slider } from "@react-three/uikit-default";
+55 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/switch.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Switch
+ 3 | description: How to use the Switch component from the Default kit.
+ 4 | nav: 33
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text, Container } from '@react-three/uikit'
+23 | import { Label } from "@react-three/uikit-default"
+24 | import { Switch } from "@react-three/uikit-default"
+25 | 
+26 | function SwitchDemo() {
+27 |   return (
+28 |     <Container flexDirection="row" alignItems="center" gap={8}>
+29 |       <Switch />
+30 |       <Label>
+31 |         <Text>Airplane Mode</Text>
+32 |       </Label>
+33 |     </Container>
+34 |   )
+35 | }
+36 | 
+37 | export default function App() {
+38 |   return (
+39 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+40 |       <ambientLight intensity={0.5} />
+41 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+42 |       <Defaults>
+43 |         <Fullscreen
+44 |           overflow="scroll"
+45 |           scrollbarColor="black"
+46 |           backgroundColor="white"
+47 |           dark={{ backgroundColor: "black" }}
+48 |           flexDirection="column"
+49 |           gap={32}
+50 |           paddingX={32}
+51 |           alignItems="center"
+52 |           padding={32}
+53 |         >
+54 |           <DialogAnchor><SwitchDemo /></DialogAnchor>
+55 |         </Fullscreen>
+56 |       </Defaults>
+57 |     </Canvas>
+58 |   )
+59 | }`}}
+60 | />
+61 | 
+62 | ```bash
+63 | import { Switch } from "@react-three/uikit-default";
+64 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/tabs.mdx:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Tabs
+  3 | description: How to use the Tabs component from the Default kit.
+  4 | nav: 34
+  5 | ---
+  6 | 
+  7 | <Sandpack
+  8 |   template="react-ts"
+  9 |   customSetup={{
+ 10 |     dependencies: {
+ 11 |       'three': 'latest',
+ 12 |       '@react-three/fiber': '<9',
+ 13 |       '@react-three/uikit': 'latest',
+ 14 |       '@react-three/uikit-default': 'latest',
+ 15 |       '@react-three/drei': '<10',
+ 16 |     },
+ 17 |   }}
+ 18 |   files={{
+ 19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+ 20 | import { Fullscreen } from "@react-three/uikit";
+ 21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+ 22 | import { Text, Container } from '@react-three/uikit'
+ 23 | import { Button } from "@react-three/uikit-default"
+ 24 | import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@react-three/uikit-default"
+ 25 | import { Label } from "@react-three/uikit-default"
+ 26 | import { Tabs, TabsContent, TabsList, TabsTrigger } from "@react-three/uikit-default"
+ 27 | 
+ 28 | function TabsDemo() {
+ 29 |   return (
+ 30 |     <Tabs defaultValue="account" width={400}>
+ 31 |       <TabsList width="100%">
+ 32 |         <TabsTrigger flexGrow={1} value="account">
+ 33 |           <Text>Account</Text>
+ 34 |         </TabsTrigger>
+ 35 |         <TabsTrigger flexGrow={1} value="password">
+ 36 |           <Text>Password</Text>
+ 37 |         </TabsTrigger>
+ 38 |       </TabsList>
+ 39 |       <TabsContent value="account">
+ 40 |         <Card>
+ 41 |           <CardHeader>
+ 42 |             <CardTitle>
+ 43 |               <Text>Account</Text>
+ 44 |             </CardTitle>
+ 45 |             <CardDescription>
+ 46 |               <Text>Make changes to your account here. Click save when you're done.</Text>
+ 47 |             </CardDescription>
+ 48 |           </CardHeader>
+ 49 |           <CardContent flexDirection="column" gap={8}>
+ 50 |             <Container flexDirection="column" gap={4}>
+ 51 |               <Label>
+ 52 |                 <Text>Name</Text>
+ 53 |               </Label>
+ 54 |               <Text>Pedro Duarte</Text>
+ 55 |             </Container>
+ 56 |             <Container flexDirection="column" gap={4}>
+ 57 |               <Label>
+ 58 |                 <Text>Username</Text>
+ 59 |               </Label>
+ 60 |               <Text>@peduarte</Text>
+ 61 |             </Container>
+ 62 |           </CardContent>
+ 63 |           <CardFooter>
+ 64 |             <Button>
+ 65 |               <Text>Save changes</Text>
+ 66 |             </Button>
+ 67 |           </CardFooter>
+ 68 |         </Card>
+ 69 |       </TabsContent>
+ 70 |       <TabsContent value="password">
+ 71 |         <Card>
+ 72 |           <CardHeader>
+ 73 |             <CardTitle>
+ 74 |               <Text>Password</Text>
+ 75 |             </CardTitle>
+ 76 |             <CardDescription>
+ 77 |               <Text>Change your password here. After saving, you'll be logged out.</Text>
+ 78 |             </CardDescription>
+ 79 |           </CardHeader>
+ 80 |           <CardContent flexDirection="column" gap={8}>
+ 81 |             <Container flexDirection="column" gap={4}>
+ 82 |               <Label>
+ 83 |                 <Text>Current password</Text>
+ 84 |               </Label>
+ 85 |               <Text>password</Text>
+ 86 |             </Container>
+ 87 |             <Container flexDirection="column" gap={4}>
+ 88 |               <Label>
+ 89 |                 <Text>New password</Text>
+ 90 |               </Label>
+ 91 |               <Text>password</Text>
+ 92 |             </Container>
+ 93 |           </CardContent>
+ 94 |           <CardFooter>
+ 95 |             <Button>
+ 96 |               <Text>Save password</Text>
+ 97 |             </Button>
+ 98 |           </CardFooter>
+ 99 |         </Card>
+100 |       </TabsContent>
+101 |     </Tabs>
+102 |   )
+103 | }
+104 | 
+105 | export default function App() {
+106 |   return (
+107 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+108 |       <ambientLight intensity={0.5} />
+109 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+110 |       <Defaults>
+111 |         <Fullscreen
+112 |           overflow="scroll"
+113 |           scrollbarColor="black"
+114 |           backgroundColor="white"
+115 |           dark={{ backgroundColor: "black" }}
+116 |           flexDirection="column"
+117 |           gap={32}
+118 |           paddingX={32}
+119 |           alignItems="center"
+120 |           padding={32}
+121 |         >
+122 |           <DialogAnchor><TabsDemo /></DialogAnchor>
+123 |         </Fullscreen>
+124 |       </Defaults>
+125 |     </Canvas>
+126 |   )
+127 | }`}}
+128 | />
+129 | 
+130 | ```bash
+131 | import { Tabs } from "@react-three/uikit-default";
+132 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/toggle-group.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Toggle-group
+ 3 | description: How to use the Toggle-group component from the Default kit.
+ 4 | nav: 36
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Bold, Italic, Underline } from '@react-three/uikit-lucide'
+23 | import { ToggleGroup, ToggleGroupItem } from "@react-three/uikit-default"
+24 | 
+25 | function ToggleGroupDemo() {
+26 |   return (
+27 |     <ToggleGroup>
+28 |       <ToggleGroupItem aria-label="Toggle bold">
+29 |         <Bold height={16} width={16} />
+30 |       </ToggleGroupItem>
+31 |       <ToggleGroupItem aria-label="Toggle italic">
+32 |         <Italic height={16} width={16} />
+33 |       </ToggleGroupItem>
+34 |       <ToggleGroupItem aria-label="Toggle underline">
+35 |         <Underline width={16} height={16} />
+36 |       </ToggleGroupItem>
+37 |     </ToggleGroup>
+38 |   )
+39 | }
+40 | 
+41 | export default function App() {
+42 |   return (
+43 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+44 |       <ambientLight intensity={0.5} />
+45 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+46 |       <Defaults>
+47 |         <Fullscreen
+48 |           overflow="scroll"
+49 |           scrollbarColor="black"
+50 |           backgroundColor="white"
+51 |           dark={{ backgroundColor: "black" }}
+52 |           flexDirection="column"
+53 |           gap={32}
+54 |           paddingX={32}
+55 |           alignItems="center"
+56 |           padding={32}
+57 |         >
+58 |           <DialogAnchor><ToggleGroupDemo /></DialogAnchor>
+59 |         </Fullscreen>
+60 |       </Defaults>
+61 |     </Canvas>
+62 |   )
+63 | }`}}
+64 | />
+65 | 
+66 | ```bash
+67 | import { Toggle-group } from "@react-three/uikit-default";
+68 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/toggle.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Toggle
+ 3 | description: How to use the Toggle component from the Default kit.
+ 4 | nav: 35
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Bold } from '@react-three/uikit-lucide'
+23 | import { Toggle } from "@react-three/uikit-default"
+24 | 
+25 | function ToggleDemo() {
+26 |   return (
+27 |     <Toggle>
+28 |       <Bold height={16} width={16} />
+29 |     </Toggle>
+30 |   )
+31 | }
+32 | 
+33 | export default function App() {
+34 |   return (
+35 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+36 |       <ambientLight intensity={0.5} />
+37 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+38 |       <Defaults>
+39 |         <Fullscreen
+40 |           overflow="scroll"
+41 |           scrollbarColor="black"
+42 |           backgroundColor="white"
+43 |           dark={{ backgroundColor: "black" }}
+44 |           flexDirection="column"
+45 |           gap={32}
+46 |           paddingX={32}
+47 |           alignItems="center"
+48 |           padding={32}
+49 |         >
+50 |           <DialogAnchor><ToggleDemo /></DialogAnchor>
+51 |         </Fullscreen>
+52 |       </Defaults>
+53 |     </Canvas>
+54 |   )
+55 | }`}}
+56 | />
+57 | 
+58 | ```bash
+59 | import { Toggle } from "@react-three/uikit-default";
+60 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/tooltip.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Tooltip
+ 3 | description: How to use the Tooltip component from the Default kit.
+ 4 | nav: 37
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Text } from '@react-three/uikit'
+23 | import { Button } from "@react-three/uikit-default"
+24 | import { Tooltip, TooltipContent, TooltipTrigger } from "@react-three/uikit-default"
+25 | 
+26 | function TooltipDemo() {
+27 |   return (
+28 |     <Tooltip>
+29 |       <TooltipTrigger>
+30 |         <Button variant="outline">
+31 |           <Text>Hover</Text>
+32 |         </Button>
+33 |       </TooltipTrigger>
+34 |       <TooltipContent>
+35 |         <Text>Add to library</Text>
+36 |       </TooltipContent>
+37 |     </Tooltip>
+38 |   )
+39 | }
+40 | 
+41 | export default function App() {
+42 |   return (
+43 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+44 |       <ambientLight intensity={0.5} />
+45 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+46 |       <Defaults>
+47 |         <Fullscreen
+48 |           overflow="scroll"
+49 |           scrollbarColor="black"
+50 |           backgroundColor="white"
+51 |           dark={{ backgroundColor: "black" }}
+52 |           flexDirection="column"
+53 |           gap={32}
+54 |           paddingX={32}
+55 |           alignItems="center"
+56 |           padding={32}
+57 |         >
+58 |           <DialogAnchor><TooltipDemo /></DialogAnchor>
+59 |         </Fullscreen>
+60 |       </Defaults>
+61 |     </Canvas>
+62 |   )
+63 | }`}}
+64 | />
+65 | 
+66 | ```bash
+67 | import { Tooltip } from "@react-three/uikit-default";
+68 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/default-kit/video.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Video
+ 3 | description: How to use the Video component from the Default kit.
+ 4 | nav: 39
+ 5 | ---
+ 6 | 
+ 7 | <Sandpack
+ 8 |   template="react-ts"
+ 9 |   customSetup={{
+10 |     dependencies: {
+11 |       'three': 'latest',
+12 |       '@react-three/fiber': '<9',
+13 |       '@react-three/uikit': 'latest',
+14 |       '@react-three/uikit-default': 'latest',
+15 |       '@react-three/drei': '<10',
+16 |     },
+17 |   }}
+18 |   files={{
+19 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+20 | import { Fullscreen } from "@react-three/uikit";
+21 | import { Defaults, DialogAnchor } from "@react-three/uikit-default";
+22 | import { Video } from "@react-three/uikit-default"
+23 | 
+24 | function VideoDemo() {
+25 |   return (
+26 |     <Video
+27 |       crossOrigin="anonymous"
+28 |       src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+29 |       controls
+30 |       width={500}
+31 |     />
+32 |   )
+33 | }
+34 | 
+35 | export default function App() {
+36 |   return (
+37 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+38 |       <ambientLight intensity={0.5} />
+39 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+40 |       <Defaults>
+41 |         <Fullscreen
+42 |           overflow="scroll"
+43 |           scrollbarColor="black"
+44 |           backgroundColor="white"
+45 |           dark={{ backgroundColor: "black" }}
+46 |           flexDirection="column"
+47 |           gap={32}
+48 |           paddingX={32}
+49 |           alignItems="center"
+50 |           padding={32}
+51 |         >
+52 |           <DialogAnchor><VideoDemo /></DialogAnchor>
+53 |         </Fullscreen>
+54 |       </Defaults>
+55 |     </Canvas>
+56 |   )
+57 | }`}}
+58 | />
+59 | 
+60 | ```bash
+61 | import { Video } from "@react-three/uikit-default";
+62 | ```
+
+
+--------------------------------------------------------------------------------
+/docs/generate-kit-docs.js:
+--------------------------------------------------------------------------------
+ 1 | import ApfelRegistry from '../packages/kits/apfel/src/registry.json' assert { type: 'json' }
+ 2 | import DefaultRegistry from '../packages/kits/default/src/registry.json' assert { type: 'json' }
+ 3 | import { readFileSync, writeFileSync } from 'fs'
+ 4 | 
+ 5 | function generateMarkdown(nav, kit, component) {
+ 6 |   const content = readFileSync(`../examples/${kit}/src/components/${component}.tsx`)
+ 7 |     .toString()
+ 8 |     .replace(/export (default )?/, '')
+ 9 |     .replace(/from \'\@\/.*\'/g, `from "@react-three/uikit-${kit}"`)
+10 |   const componentNameRegexResult = /function (.*)\(/.exec(content)
+11 |   if (componentNameRegexResult == null) {
+12 |     console.error(content)
+13 |     throw new Error()
+14 |   }
+15 |   const componentName = componentNameRegexResult[1]
+16 | 
+17 |   return `---
+18 | title: ${capitalize(component)}
+19 | description: How to use the ${capitalize(component)} component from the ${capitalize(kit)} kit.
+20 | nav: ${nav}
+21 | ---
+22 | 
+23 | <Sandpack
+24 |   template="react-ts"
+25 |   customSetup={{
+26 |     dependencies: {
+27 |       'three': 'latest',
+28 |       '@react-three/fiber': '<9',
+29 |       '@react-three/uikit': 'latest',
+30 |       '@react-three/uikit-${kit}': 'latest',
+31 |       '@react-three/drei': '<10',
+32 |     },
+33 |   }}
+34 |   files={{
+35 |     '/App.tsx': \`import { Canvas } from "@react-three/fiber";
+36 | import { Fullscreen } from "@react-three/uikit";
+37 | import { Defaults${kit === 'default' ? ', DialogAnchor' : ''} } from "@react-three/uikit-${kit}";
+38 | ${content}
+39 | export default function App() {
+40 |   return (
+41 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+42 |       <ambientLight intensity={0.5} />
+43 |       <directionalLight intensity={1} position={[-5, 5, 10]} />
+44 |       <Defaults>
+45 |         <Fullscreen
+46 |           overflow="scroll"
+47 |           scrollbarColor="black"
+48 |           backgroundColor="white"
+49 |           dark={{ backgroundColor: "black" }}
+50 |           flexDirection="column"
+51 |           gap={32}
+52 |           paddingX={32}
+53 |           alignItems="center"
+54 |           padding={32}
+55 |         >
+56 |           ${kit === 'default' ? `<DialogAnchor><${componentName} /></DialogAnchor>` : `<${componentName} />`}
+57 |         </Fullscreen>
+58 |       </Defaults>
+59 |     </Canvas>
+60 |   )
+61 | }\`}}
+62 | />
+63 | 
+64 | \`\`\`bash
+65 | import { ${capitalize(component)} } from "@react-three/uikit-${kit}";
+66 | \`\`\``
+67 | }
+68 | 
+69 | let i = 17
+70 | for (const component of Object.keys(DefaultRegistry)) {
+71 |   writeFileSync(`default-kit/${component}.mdx`, generateMarkdown(i++, 'default', component))
+72 | }
+73 | 
+74 | for (const component of Object.keys(ApfelRegistry)) {
+75 |   writeFileSync(`apfel-kit/${component}.mdx`, generateMarkdown(i++, 'apfel', component))
+76 | }
+77 | function capitalize(s) {
+78 |   return s[0].toUpperCase() + s.slice(1)
+79 | }
+80 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/apfel-overview.jpg:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/apfel-overview.jpg
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/banner.jpg:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/banner.jpg
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/basic-example.gif:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/basic-example.gif
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/components-and-properties.md:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Components and Properties
+  3 | description: A list of all components and their properties.
+  4 | nav: 3
+  5 | ---
+  6 | 
+  7 | ## Flexbox Properties
+  8 | 
+  9 | All components in uikit use flexbox properties to define the position and size inside the layout. An overview of all available flexbox properties can be found below and [here](https://yogalayout.dev/docs/).
+ 10 | 
+ 11 | <details>
+ 12 | <summary>View all flexbox properties</summary>
+ 13 | 
+ 14 | | Property            | Type                                                                                                        |
+ 15 | | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+ 16 | | visibility          | "visible" , "hidden"                                                                                        |
+ 17 | | margin              | number, Percentage, "auto"                                                                                  |
+ 18 | | marginX             | number, Percentage, "auto"                                                                                  |
+ 19 | | marginY             | number, Percentage, "auto"                                                                                  |
+ 20 | | marginTop           | number, Percentage, "auto"                                                                                  |
+ 21 | | marginLeft          | number, Percentage, "auto"                                                                                  |
+ 22 | | marginRight         | number, Percentage, "auto"                                                                                  |
+ 23 | | marginBottom        | number, Percentage, "auto"                                                                                  |
+ 24 | | transformTranslateX | number                                                                                                      |
+ 25 | | transformTranslateY | number                                                                                                      |
+ 26 | | transformTranslateZ | number                                                                                                      |
+ 27 | | transformScaleX     | number                                                                                                      |
+ 28 | | transformScaleY     | number                                                                                                      |
+ 29 | | transformScaleZ     | number                                                                                                      |
+ 30 | | transformRotateX    | number                                                                                                      |
+ 31 | | transformRotateY    | number                                                                                                      |
+ 32 | | transformRotateZ    | number                                                                                                      |
+ 33 | | positionType        | "absolute", "relative", "count"                                                                             |
+ 34 | | inset               | number, Percentage                                                                                          |
+ 35 | | positionTop         | number, Percentage                                                                                          |
+ 36 | | positionLeft        | number, Percentage                                                                                          |
+ 37 | | positionRight       | number, Percentage                                                                                          |
+ 38 | | positionBottom      | number, Percentage                                                                                          |
+ 39 | | alignContent        | "count", "space-around", "space-between", "baseline", "stretch", "flex-end", "center", "flex-start", "auto" |
+ 40 | | alignItems          | "count", "space-around", "space-between", "baseline", "stretch", "flex-end", "center", "flex-start", "auto" |
+ 41 | | alignSelf           | "count", "space-around", "space-between", "baseline", "stretch", "flex-end", "center", "flex-start", "auto" |
+ 42 | | flexDirection       | "count", "row-reverse", "row", "column-reverse", "column"                                                   |
+ 43 | | flexWrap            | "count", "wrap-reverse", "wrap", "no-wrap"                                                                  |
+ 44 | | justifyContent      | "count", "space-around", "space-between", "flex-end", "center", "flex-start", "space-evenly"                |
+ 45 | | flexBasis           | number, Percentage                                                                                          |
+ 46 | | flexGrow            | number                                                                                                      |
+ 47 | | flexShrink          | number                                                                                                      |
+ 48 | | width               | number, Percentage, "auto"                                                                                  |
+ 49 | | height              | number, Percentage, "auto"                                                                                  |
+ 50 | | minWidth            | number, Percentage                                                                                          |
+ 51 | | minHeight           | number, Percentage                                                                                          |
+ 52 | | maxWidth            | number, Percentage                                                                                          |
+ 53 | | maxHeight           | number, Percentage                                                                                          |
+ 54 | | aspectRatio         | number                                                                                                      |
+ 55 | | border              | number                                                                                                      |
+ 56 | | borderX             | number                                                                                                      |
+ 57 | | borderY             | number                                                                                                      |
+ 58 | | borderTop           | number                                                                                                      |
+ 59 | | borderLeft          | number                                                                                                      |
+ 60 | | borderRight         | number                                                                                                      |
+ 61 | | borderBottom        | number                                                                                                      |
+ 62 | | overflow            | "visible", "scroll", "hidden"                                                                               |
+ 63 | | padding             | number, Percentage                                                                                          |
+ 64 | | paddingX            | number, Percentage                                                                                          |
+ 65 | | paddingY            | number, Percentage                                                                                          |
+ 66 | | paddingTop          | number, Percentage                                                                                          |
+ 67 | | paddingLeft         | number, Percentage                                                                                          |
+ 68 | | paddingRight        | number, Percentage                                                                                          |
+ 69 | | paddingBottom       | number, Percentage                                                                                          |
+ 70 | | gap                 | number                                                                                                      |
+ 71 | | gapRow              | number                                                                                                      |
+ 72 | | gapColumn           | number                                                                                                      |
+ 73 | 
+ 74 | </details>
+ 75 | 
+ 76 | ## Container
+ 77 | 
+ 78 | The `Container` componet is a basic UI component that allows wrapping children and rendering a Panel into the background. It corresponds to the HTML `div` element.
+ 79 | 
+ 80 | ```jsx showLineNumbers
+ 81 | <Container backgroundColor="red">
+ 82 |   <Text>...</Text>
+ 83 |   <Image src="..." />
+ 84 | </Container>
+ 85 | ```
+ 86 | 
+ 87 | In addition to the flexbox properties, the container has properties for styling its background panel and the scrollbars.
+ 88 | 
+ 89 | <details>
+ 90 | <summary>View all properties for styling the background panel</summary>
+ 91 | 
+ 92 | | Property                         | Type                                           |
+ 93 | | -------------------------------- | ---------------------------------------------- |
+ 94 | | receiveShadow                    | boolean                                        |
+ 95 | | castShadow                       | boolean                                        |
+ 96 | | depthTest                        | boolean                                        |
+ 97 | | depthWrite                       | boolean                                        |
+ 98 | | renderOrder                      | number                                         |
+ 99 | | backgroundColor                  | ColorRepresentation                            |
+100 | | backgroundOpacity                | number                                         |
+101 | | panelMaterialClass               | Material class                                 |
+102 | | borderOpacity                    | number                                         |
+103 | | borderColor                      | ColorRepresentation                            |
+104 | | borderRadius                     | number                                         |
+105 | | borderLeftRadius                 | number                                         |
+106 | | borderRightRadius                | number                                         |
+107 | | borderTopRadius                  | number                                         |
+108 | | borderBottomRadius               | number                                         |
+109 | | borderTopLeftRadius              | number                                         |
+110 | | borderTopRightRadius             | number                                         |
+111 | | borderBottomRightRadius          | number                                         |
+112 | | borderBottomLeftRadius           | number                                         |
+113 | | borderBend                       | number                                         |
+114 | | scrollbarPanelMaterialClass      | Material class                                 |
+115 | | scrollbarBackgroundOpacity       | number                                         |
+116 | | scrollbarBackgroundColor         | ColorRepresentation                            |
+117 | | scrollbarWidth                   | number                                         |
+118 | | scrollbarBorderRadius            | number                                         |
+119 | | scrollbarBorderLeftRadius        | number                                         |
+120 | | scrollbarBorderRightRadius       | number                                         |
+121 | | scrollbarBorderTopRadius         | number                                         |
+122 | | scrollbarBorderBottomRadius      | number                                         |
+123 | | scrollbarBorderTopLeftRadius     | number                                         |
+124 | | scrollbarBorderTopRightRadius    | number                                         |
+125 | | scrollbarBorderBottomRightRadius | number                                         |
+126 | | scrollbarBorderBottomLeftRadius  | number                                         |
+127 | | zIndexOffset                     | number or `{ minor?: number, major?: number }` |
+128 | 
+129 | **`zIndexOffset` Explanation:**  
+130 | `zIndexOffset={1}` allows to manipulate the default order deduced from the UI hierachy, giving the developer the option to shift the order of specific elements backwards or forwards making them appear behind or infront of other elements. Note that sibling elements are treated as having the same UI hiearchy and are therefore not explicitly ordered. `zIndexOffset={1}` is the same as `zIndexOffset={{ major: 1 }}`. While giving a major zIndexOffset causes more draw calls, a minor offset with `zIndexOffset={{ minor: 1 }}` causes no direct performance implications and allows to order sibling elements of the same type e.g. with two overlapping panels beeing siblings in the UI hiearchy.
+131 | 
+132 | </details>
+133 | 
+134 | ## Root
+135 | 
+136 | Every layout needs to start with a `Root` component. The `Root` component has all the properties of a `Container` component. The `pixelSize` property of the `Root` component allows you to specify the relation of pixels inside the layout with the three.js units in the scene. The `anchorX` and `anchorY` properties allow you to specify where the `Root` component is anchored in relation to its position. The `sizeX` and `sizeY` properties can be used to give the layout a fixed size in three.js units.
+137 | 
+138 | ```jsx showLineNumbers
+139 | <Root sizeX={2} sizeY={1} flexDirection="row">
+140 |   <Container flexGrow={1} backgroundColor="red" />
+141 |   <Container flexGrow={1} backgroundColor="green" />
+142 | </Root>
+143 | ```
+144 | 
+145 | <details>
+146 | <summary>View all properties specific to the `Root` component</summary>
+147 | 
+148 | | Property | Type                      |
+149 | | -------- | ------------------------- |
+150 | | anchorX  | "left", "center", "right" |
+151 | | anchorY  | "top", "center", "bottom" |
+152 | | sizeX    | number                    |
+153 | | sizeY    | number                    |
+154 | 
+155 | </details>
+156 | 
+157 | ## Fullscreen
+158 | 
+159 | The `Fullscreen` component wraps the `Root` component and binds its content directly to the viewport based on the provided `distanceToCamera`. The `Fullscreen` component automatically sets the correct pixelSize, sizeX, and sizeY properties on the `Root` component so that pixel sizes align with the pixels of the screen. In addition, the `Fullscreen` component has all the properties of the `Container` component.
+160 | 
+161 | ```jsx showLineNumbers
+162 | <Fullscreen flexDirection="row">
+163 |   <Container flexGrow={1} backgroundColor="red" />
+164 |   <Container flexGrow={1} backgroundColor="green" />
+165 | </Fullscreen>
+166 | ```
+167 | 
+168 | <details>
+169 | <summary>View all properties specific to the `Fullscreen` component</summary>
+170 | 
+171 | | Property         | Type    |
+172 | | ---------------- | ------- |
+173 | | attachCamera     | boolean |
+174 | | distanceToCamera | number  |
+175 | 
+176 | </details>
+177 | 
+178 | ## Image
+179 | 
+180 | The `Image` component has the same properties and functionalities as a `Container` component but allows you to render an image inside it. The `Image` component corresponds to the HTML `img` element. The `Image` component has the `src` property, which can take an URL or a three.js texture. The `Image` component automatically sets the `aspectRatio` property based on the `src` property. This behavior can be turned off through `keepAspectRatio={false}`. The `objectFit` property can also be used to `cover` or `fill` the image in case the aspect ratio cannot be preserved by the layout engine or was overwritten by the user.
+181 | 
+182 | ```jsx showLineNumbers
+183 | <Root>
+184 |   <Image src="example.jpg" width={100} />
+185 | </Root>
+186 | ```
+187 | 
+188 | <details>
+189 | <summary>View all properties specific to the `Image` component</summary>
+190 | 
+191 | | Property        | Type            |
+192 | | --------------- | --------------- |
+193 | | src             | string, Texture |
+194 | | objectFit       | "fill", "cover" |
+195 | | keepAspectRatio | boolean         |
+196 | 
+197 | </details>
+198 | 
+199 | ## SuspendingImage
+200 | 
+201 | The default image doesn't use react's suspense but rather loads the image silently. To explicitly control how the image behaves when loaded, use the `SuspendingImage` component. The component can be used to display a fallback component while the image is loading. It has the same properties as the `Image` component.
+202 | 
+203 | ```jsx showLineNumbers
+204 | <Suspense fallback={
+205 |     <Container width={200} aspectRatio={1} alignItems="center" justifyContent="center">
+206 |       <LoadingSpinner/>
+207 |     </Container>
+208 |   }
+209 | >
+210 |   <SuspendingImage src="..." width={200}>
+211 | </Suspense>
+212 | ```
+213 | 
+214 | ## Portal
+215 | 
+216 | The `Portal` component uses the `Image` component under the hood to render its children into a render target, which is displayed on the surface of the `Portal` component. In contrast to the `Image` component, the `Portal` component doesn't have a default `aspectRatio` or an `src` property. The size of the portal is completly controlled through the flexbox properties, the resolution of the portal is equal to the size multiplied by the `dpr` property, which defaults to the system `dpr`.
+217 | 
+218 | ```jsx showLineNumbers
+219 | <Root>
+220 |   <Portal width={200} aspectRatio={1}>
+221 |     <mesh>
+222 |       <boxGeometry />
+223 |       <meshBasicMaterial color="red" />
+224 |     </mesh>
+225 |   </Portal>
+226 | </Root>
+227 | ```
+228 | 
+229 | ## Video
+230 | 
+231 | The `Video` component has the same properties and functionalities as a `Image` component but allows you to render an video inside it. The `Video` component corresponds to the HTML `video` element. The `Video` component has the `src`, `volume`, `preservesPitch`, `playbackRate`, `muted`, `loop`, and `autoplay` property to setip the video and can even be used to play media streams.
+232 | 
+233 | To control playing the video the `Video` provide the html video element through a provide, that can be consumed by its children through `useVideoElement` to create video controls. Additionally, the html video element can be received from the parent of the `Video` using `ref.current.element`.
+234 | 
+235 | ```jsx showLineNumbers
+236 | <Root>
+237 |   <Video src="example.mp4" autoplay width={100} />
+238 | </Root>
+239 | ```
+240 | 
+241 | <details>
+242 | <summary>View all properties specific to the `Video` component</summary>
+243 | 
+244 | | Property       | Type                |
+245 | | -------------- | ------------------- |
+246 | | src            | string, MediaStream |
+247 | | volume         | number              |
+248 | | preservesPitch | boolean             |
+249 | | playbackRate   | number              |
+250 | | muted          | boolean             |
+251 | | loop           | boolean             |
+252 | | autoplay       | boolean             |
+253 | 
+254 | </details>
+255 | 
+256 | ## Text
+257 | 
+258 | The `Text` component allows you to render of text and is highly intertwined with the layout engine to allow the layout engine to measure and influence the text layout (e.g., how the text should be broken up). The `Text` component has several properties aligned with the CSS text properties such as `letterSpacing`, `lineHeight`, `fontSize`, `wordBreak`, `fontFamily`, and `fontWeight`. In addition, the `Text` component has all the properties available in the `Container` component.
+259 | 
+260 | ```jsx showLineNumbers
+261 | <Root>
+262 |   <Text fontWeight="bold">Hello World!</Text>
+263 | </Root>
+264 | ```
+265 | 
+266 | <details>
+267 | <summary>View all properties specific to the `Text` component</summary>
+268 | 
+269 | | Property      | Type                                                                                                                  |
+270 | | ------------- | --------------------------------------------------------------------------------------------------------------------- |
+271 | | color         | ColorRepresentation                                                                                                   |
+272 | | opacity       | number                                                                                                                |
+273 | | textAlign     | "left", "center", "right"                                                                                             |
+274 | | verticalAlign | "top", "center", "bottom"                                                                                             |
+275 | | letterSpacing | number                                                                                                                |
+276 | | lineHeight    | number                                                                                                                |
+277 | | fontSize      | number                                                                                                                |
+278 | | wordBreak     | "keep-all", "break-all", "break-word"                                                                                 |
+279 | | fontFamily    | string                                                                                                                |
+280 | | fontWeight    | number, "bold", "thin", "extra-light", "light", "normal", "medium", "semi-bold", "extra-bold", "black", "extra-black" |
+281 | 
+282 | </details>
+283 | 
+284 | ## Input
+285 | 
+286 | The `Input` component extends the `Text` component and allows the user to change the text through their preferred input device. The `Input` component has all the formatting capabilities as the `Text` element. Additionally, it allows specifying whether the `multiline` texts are allowed (similar to a textarea), whether the input is `disabled,` the current `value,` the `defaultValue,` an `onValueChange` listener, and the `tabIndex` to customize the tab order.
+287 | 
+288 | ```jsx showLineNumbers
+289 | <Root>
+290 |   <Input fontWeight="bold" defaultValue="Hello World" />
+291 | </Root>
+292 | ```
+293 | 
+294 | The `Input` component also exposes a ref that provides access to various properties and methods for controlling the input programmatically. This ref can be used to focus or blur the input, access the current value, and get information about the selection and caret position.
+295 | 
+296 | <details>
+297 | <summary>View all properties exposed in the Input ref</summary>
+298 | 
+299 | | Property                 | Description                                                      |
+300 | | ------------------------ | ---------------------------------------------------------------- |
+301 | | current                  | A signal containing the current value of the input               |
+302 | | focus                    | Method to programmatically focus the input                       |
+303 | | blur                     | Method to programmatically remove focus from the input           |
+304 | | element                  | A signal containing the underlying HTML element                  |
+305 | | selectionRange           | A signal containing the current selection range [start, end]     |
+306 | | caretTransformation      | A signal containing information about the caret's transformation (position and height) |
+307 | | selectionTransformations | A signal containing the transformations for all selection (boxes)  |
+308 | 
+309 | </details>
+310 | 
+311 | <details>
+312 | <summary>View all properties specific to the `Input` component</summary>
+313 | 
+314 | | Property                         | Type                    |
+315 | | -------------------------------- | ----------------------- |
+316 | | multiline                        | boolean                 |
+317 | | value                            | string                  |
+318 | | defaultValue                     | string                  |
+319 | | onValueChange                    | (value: string) => void |
+320 | | tabIndex                         | number                  |
+321 | | disabled                         | boolean                 |
+322 | | type                             | "text", "password"      |
+323 | | caretColor                       | ColorRepresentation     |
+324 | | caretOpacity                     | opacity                 |
+325 | | caretWidth                       | number                  |
+326 | | caretBorderOpacity               | number                  |
+327 | | caretBorderColor                 | ColorRepresentation     |
+328 | | caretBorderRadius                | number                  |
+329 | | caretBorderLeftRadius            | number                  |
+330 | | caretBorderRightRadius           | number                  |
+331 | | caretBorderTopRadius             | number                  |
+332 | | caretBorderBottomRadius          | number                  |
+333 | | caretBorderTopLeftRadius         | number                  |
+334 | | caretBorderTopRightRadius        | number                  |
+335 | | caretBorderBottomRightRadius     | number                  |
+336 | | caretBorderBottomLeftRadius      | number                  |
+337 | | caretBorderBend                  | number                  |
+338 | | caretBorder                      | number                  |
+339 | | caretBorderX                     | number                  |
+340 | | caretBorderY                     | number                  |
+341 | | caretBorderTop                   | number                  |
+342 | | caretBorderLeft                  | number                  |
+343 | | caretBorderRight                 | number                  |
+344 | | caretBorderBottom                | number                  |
+345 | | selectionColor                   | ColorRepresentation     |
+346 | | selectionOpacity                 | opacity                 |
+347 | | selectionBorderOpacity           | number                  |
+348 | | selectionBorderColor             | ColorRepresentation     |
+349 | | selectionBorderRadius            | number                  |
+350 | | selectionBorderLeftRadius        | number                  |
+351 | | selectionBorderRightRadius       | number                  |
+352 | | selectionBorderTopRadius         | number                  |
+353 | | selectionBorderBottomRadius      | number                  |
+354 | | selectionBorderTopLeftRadius     | number                  |
+355 | | selectionBorderTopRightRadius    | number                  |
+356 | | selectionBorderBottomRightRadius | number                  |
+357 | | selectionBorderBottomLeftRadius  | number                  |
+358 | | selectionBorderBend              | number                  |
+359 | | selectionBorder                  | number                  |
+360 | | selectionBorderX                 | number                  |
+361 | | selectionBorderY                 | number                  |
+362 | | selectionBorderTop               | number                  |
+363 | | selectionBorderLeft              | number                  |
+364 | | selectionBorderRight             | number                  |
+365 | | selectionBorderBottom            | number                  |
+366 | 
+367 | </details>
+368 | 
+369 | ## Svg
+370 | 
+371 | The `Svg` component allows rendering an Svg file. The URL of the file is provided in the `src` property. Additionally, the `opacity`, `color`, and `panelMaterialClass` properties can be used to transform the appearance of the Svg, and all the `Container` properties are available for styling the background panel.
+372 | 
+373 | ```jsx showLineNumbers
+374 | <Root>
+375 |   <Svg src="..." width={100} />
+376 | </Root>
+377 | ```
+378 | 
+379 | <details>
+380 | <summary>View all properties specific to the `SVG` component</summary>
+381 | 
+382 | | Property           | Type                |
+383 | | ------------------ | ------------------- |
+384 | | src                | string              |
+385 | | color              | ColorRepresentation |
+386 | | opacity            | number              |
+387 | | panelMaterialClass | MaterialClass       |
+388 | 
+389 | </details>
+390 | 
+391 | ## Icon
+392 | 
+393 | The `Icon` component only differs from the `SVG` component in how the SVG content is provided. The `Icon` component takes a `text` property, which must contain the source code of the SVG. This component helps to inline small SVG files in use cases such as icons. For example, this component is used to implement the uikit-lucide icon pack. When creating the component, the `svgWidth` and `svgHeight` properties must be provided since three.js currently doesn't respect the viewport defined in svg files.
+394 | 
+395 | ```jsx showLineNumbers
+396 | <Root>
+397 |   <Icon text="..." svgWidth={16} svgHeight={16} width={20} />
+398 | </Root>
+399 | ```
+400 | 
+401 | <details>
+402 | <summary>View all properties specific to the `SVGIconFromText` component</summary>
+403 | 
+404 | | Property           | Type                |
+405 | | ------------------ | ------------------- |
+406 | | text               | string              |
+407 | | svgHeight          | number              |
+408 | | svgWidth           | number              |
+409 | | color              | ColorRepresentation |
+410 | | opacity            | number              |
+411 | | panelMaterialClass | MaterialClass       |
+412 | 
+413 | </details>
+414 | 
+415 | ## Content
+416 | 
+417 | The `Content` component allows you to include any R3F/Three.js element into the layout. Since the children inside the `Content` component can be 3-dimensional objects, their alignment on the z-axis can be controlled with the `depthAlign` property. By default the content will preserve the aspect ratio of the 3D objects. In case the 3D objects should be sized independent from its aspect ratio, set `keepAspectRatio={false}`.
+418 | 
+419 | ```jsx showLineNumbers
+420 | <Root>
+421 |   <Content width={100}>
+422 |     <Gltf src="...">
+423 |   </Content>
+424 | </Root>
+425 | ```
+426 | 
+427 | <details>
+428 | <summary>View all properties specific to the `Content` component</summary>
+429 | 
+430 | | Property        | Type                      |
+431 | | --------------- | ------------------------- |
+432 | | depthAlign      | "back", "center", "front" |
+433 | | keepAspectRatio | boolean                   |
+434 | 
+435 | </details>
+436 | 
+437 | ## CustomContainer
+438 | 
+439 | The `CustomContainer` component integrates a 2D panel with a custom material into the UI. The component is not instanced but provides complete control over the material of the panel.
+440 | 
+441 | ```jsx showLineNumbers
+442 | <Root>
+443 |   <CustomContainer width={200} height={200}>
+444 |     <shaderMaterial fragmentShader="" vertexShader="" />
+445 |   </CustomContainer>
+446 | </Root>
+447 | ```
+448 | 
+449 | ## DefaultProperties
+450 | 
+451 | The `DefaultProperties` component allows you to override the default properties for all children. HTML/CSS uses the concept of inheritance to change properties on all children. In uikit the `DefaultProperties` component can be used to achieve the same goal. In HTML/CSS, property inheritance is implicit; the `DefaultProperties` component allows explicit expression of what properties are inherited by its children.
+452 | 
+453 | ```jsx showLineNumbers
+454 | <Root>
+455 |   <DefaultProperties color="red" fontWeight="bold">
+456 |     <Text>1</Text>
+457 |     <Container>
+458 |       <Text>2</Text>
+459 |     </Container>
+460 |     <Text>3</Text>
+461 |   </DefaultProperties>
+462 | </Root>
+463 | ```
+464 | 
+465 | ## FontFamilyProvider
+466 | 
+467 | The `FontFamilyProvider` component allows you to use the specified font families in all its children. The fonts must be compiled into an MSDF texture and a JSON containing glyph information, because uikit uses MSDF font rendering. More information on how to do this can be found [here](../tutorials/custom-fonts.md).
+468 | 
+469 | ```jsx showLineNumbers
+470 | <FontFamilyProvider
+471 |   roboto={{
+472 |     light: 'url-to-json',
+473 |     medium: 'url-to-json',
+474 |     bold: 'url-to-json',
+475 |   }}
+476 |   otherFont={{...}}
+477 | >
+478 |   {...children}
+479 | </FontFamilyProvider>
+480 | ```
+481 | 
+482 | ## Conditional Properties
+483 | 
+484 | uikit allows you to declare properties that depend on the element's interaction state, similar to CSS selectors, such as `:hover`. Conditional properties also enable elements in the layout to be responsive based on several breakpoints. uikit supports a range of conditional properties:
+485 | 
+486 | | Name   | Explanation                                                                |
+487 | | ------ | -------------------------------------------------------------------------- |
+488 | | focus  | when the user has focussed the element (currently only available on input) |
+489 | | hover  | when the user hovers over the element                                      |
+490 | | active | when the users clicks (pointer down) on the element                        |
+491 | | sm     | when the width of the root element is bigger than 640                      |
+492 | | md     | when the width of the root element is bigger than 768                      |
+493 | | lg     | when the width of the root element is bigger than 1024                     |
+494 | | xl     | when the width of the root element is bigger than 1280                     |
+495 | | 2xl    | when the width of the root element is bigger than 1536                     |
+496 | | dark   | when the preferred color scheme is dark                                    |
+497 | 
+498 | ```jsx showLineNumbers
+499 | <Fullscreen flexDirection="column" md={{ flexDirection: 'row' }}>
+500 |   <Container flexGrow={1} backgroundColor="red" />
+501 |   <Container flexGrow={1} backgroundColor="green" />
+502 | </Fullscreen>
+503 | ```
+504 | 
+505 | ## Preferred Color Schemes
+506 | 
+507 | By default, uikit inherits the preferred color scheme from the browser. Developers and designers can use the preferred color scheme to support users' preference for dark and light modes. The preferred color scheme can be controlled using `setPreferredColorScheme` and `getPreferredColorScheme`. The function `basedOnPreferredColorScheme` lets you create themes containing colors that change depending on the preferred color scheme.
+508 | 
+509 | ```jsx showLineNumbers
+510 | setPreferredColorScheme("light")
+511 | 
+512 | const theme = basedOnPreferredColorScheme({
+513 |   light: {
+514 |     primary: "red"
+515 |   },
+516 |   dark: {
+517 |     primary: "green"
+518 |   }
+519 | })
+520 | 
+521 | <Container backgroundColor={theme.primary} width={100} height={100} />
+522 | ```
+523 | 
+524 | ## Event Properties
+525 | 
+526 | All Components support [all R3F event handlers](https://docs.pmnd.rs/react-three-fiber/api/events). Additionally, event handlers for `onSizeChange`, `onIsClippedChange`, and `onScroll` can be added to all components.
+527 | 
+528 | <details>
+529 | <summary>View all event handlers</summary>
+530 | 
+531 | | Property          | Type                                                                                                                                          |
+532 | | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+533 | | onWheel           | `(event: ThreeEvent<WheelEvent>) => void`                                                                                                     |
+534 | | onPointerUp       | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+535 | | onPointerOver     | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+536 | | onPointerOut      | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+537 | | onPointerMove     | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+538 | | onPointerLeave    | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+539 | | onPointerEnter    | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+540 | | onPointerDown     | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+541 | | onPointerCancel   | `(event: ThreeEvent<PointerEvent>) => void`                                                                                                   |
+542 | | onDoubleClick     | `(event: ThreeEvent<MouseEvent>) => void`                                                                                                     |
+543 | | onContextMenu     | `(event: ThreeEvent<MouseEvent>) => void`                                                                                                     |
+544 | | onClick           | `(event: ThreeEvent<MouseEvent>) => void`                                                                                                     |
+545 | | onSizeChange      | `(width: number, height: number) => void`                                                                                                     |
+546 | | onIsClippedChange | `(isClipped: boolean) => void`                                                                                                                |
+547 | | onScroll          | `(scrollX: number, scrollY: number, scrollPosition: Signal<Vector2Tuple>, event?: ThreeEvent<WheelEvent \| PointerEvent>) => boolean \| void` |
+548 | 
+549 | </details>
+550 | 
+551 | ## Ref
+552 | 
+553 | Each component exposes internal information when using a `ref`. For instance, the container component exposes internals of the type `ContainerRef`. The component internals provide you with access to
+554 | 
+555 | | Property            | Explanation                                                                                                     |
+556 | | ------------------- | --------------------------------------------------------------------------------------------------------------- |
+557 | | borderInset         | a tuple containing the border sizes on all 4 sides `[top, right, bottom, left]`                                 |
+558 | | paddingInset        | a tuple containing the padding sizes on all 4 sides `[top, right, bottom, left]`                                |
+559 | | center              | the offset between from the element's center to its parent's center                                             |
+560 | | size                | the outer width/height of the element                                                                           |
+561 | | interactionPanel    | the mesh added to the scene graph to capture events                                                             |
+562 | | scrollPosition      | the x/y scroll position of the children when the element is scrollable                                          |
+563 | | pixelSize           | the size of one pixel                                                                                           |
+564 | | maxScrollPosition   | the maximum x/y scroll position, based on the size of the children                                              |
+565 | | isClipped           | exploses whether the element is fully clipped by some ancestor                                                  |
+566 | | setStyle            | modifies the styles of the element (the provided styles have a higher precedence then the element's properties) |
+567 | | getStyle            | get the current style of the object                                                                             |
+568 | | getComputedProperty | read the current value for any property (combines default properties, direct properties, and styles)            |
+569 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/default-overview.jpg:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/default-overview.jpg
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-apfel.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-apfel.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-auth.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-auth.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-card.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-card.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-dashboard.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-dashboard.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-lucide.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-lucide.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/example-market.png:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/getting-started/example-market.png
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/examples.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Examples
+ 3 | description: Examples made with uikit.
+ 4 | nav: 2
+ 5 | ---
+ 6 | 
+ 7 | <Grid cols={2}>
+ 8 |   <li>
+ 9 |     [![Screenshot from Card example](./example-card.png)](https://pmndrs.github.io/uikit/examples/card/)
+10 |   </li>
+11 |   <li>
+12 |     [![Screenshot from Dashboard example](./example-dashboard.png)](https://pmndrs.github.io/uikit/examples/dashboard/)
+13 |   </li>
+14 |   <li>
+15 |     [![Screenshot from Market example](./example-market.png)](https://pmndrs.github.io/uikit/examples/market/)
+16 |   </li>
+17 |   <li>
+18 |     [![Screenshot from Lucide example](./example-lucide.png)](https://pmndrs.github.io/uikit/examples/lucide/)
+19 |   </li>
+20 |   <li>
+21 |     [![Screenshot from Auth example](./example-auth.png)](https://pmndrs.github.io/uikit/examples/auth/)
+22 |   </li>
+23 | </Grid>
+24 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/first-layout.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: First Layout
+ 3 | description: Build your first layout with uikit.
+ 4 | nav: 1
+ 5 | ---
+ 6 | 
+ 7 | The first step for building a layout is to install the dependencies.
+ 8 | 
+ 9 | `npm i three @react-three/fiber @react-three/uikit @react-three/drei`
+10 | 
+11 | > [!TIP]
+12 | > The `@react-three/drei` dependency is not necessary but allows us to add `OrbitControls`.
+13 | 
+14 | Next, we create the `index.jsx` file and import the necessary dependencies.
+15 | 
+16 | ```jsx showLineNumbers
+17 | import { Canvas } from '@react-three/fiber'
+18 | import { OrbitControls } from '@react-three/drei'
+19 | import { Root, Container } from '@react-three/uikit'
+20 | ```
+21 | 
+22 | Now, we can start defining the actual layout. Every layout must start with a `Root` element (or an element that wraps the `Root` element, such as the `Fullscreen` component). In this example, the `Root` is of size 8 by 4 (three.js units). The `Root` has a horizontal (row) flex-direction, with 2 `Container` children, filling its width equally with a margin around them.
+23 | 
+24 | More in-depth information on the Flexbox properties can be found [here](https://yogalayout.dev/docs/).
+25 | 
+26 | ```jsx {5-8} showLineNumbers=5
+27 | export default function App() {
+28 |   return (
+29 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+30 |       <OrbitControls />
+31 |       <Root backgroundColor="red" sizeX={8} sizeY={4} flexDirection="row">
+32 |         <Container flexGrow={1} margin={32} backgroundColor="green" />
+33 |         <Container flexGrow={1} margin={32} backgroundColor="blue" />
+34 |       </Root>
+35 |     </Canvas>
+36 |   )
+37 | }
+38 | ```
+39 | 
+40 | The final result will look like this:
+41 | 
+42 | <Sandpack
+43 |   template="react-ts"
+44 |   customSetup={{
+45 |     dependencies: {
+46 |       'three': 'latest',
+47 |       '@react-three/fiber': '<9',
+48 |       '@react-three/uikit': 'latest',
+49 |       '@react-three/drei': '<10',
+50 |     },
+51 |   }}
+52 |   files={{
+53 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+54 | import { OrbitControls } from "@react-three/drei";
+55 | import { Root, Container } from "@react-three/uikit";
+56 | 
+57 | export default function App() {
+58 |   return (
+59 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+60 |       <OrbitControls />
+61 |       <Root backgroundColor="red" sizeX={8} sizeY={4} flexDirection="row">
+62 |         <Container flexGrow={1} margin={32} backgroundColor="green" />
+63 |         <Container flexGrow={1} margin={32} backgroundColor="blue" />
+64 |       </Root>
+65 |     </Canvas>
+66 |   )
+67 | }`}}
+68 | />
+69 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/introduction.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Introduction
+ 3 | description: Build performant 3D user interfaces for threejs using R3F and yoga.
+ 4 | nav: 0
+ 5 | ---
+ 6 | 
+ 7 | > Perfect for games, XR (VR/AR), and any web-based Spatial Computing App.
+ 8 | 
+ 9 | ```bash
+10 | npm install three @react-three/fiber @react-three/uikit
+11 | ```
+12 | 
+13 | ### What does it look like?
+14 | 
+15 | <Sandpack
+16 |   template="react-ts"
+17 |   customSetup={{
+18 |     dependencies: {
+19 |       'three': 'latest',
+20 |       '@react-three/fiber': '<9',
+21 |       '@react-three/uikit': 'latest',
+22 |       '@react-three/drei': '<10',
+23 |     },
+24 |   }}
+25 |   files={{
+26 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+27 | import { Fullscreen, Container } from "@react-three/uikit";
+28 | 
+29 | export default function App() {
+30 |   return (
+31 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+32 |       <Fullscreen flexDirection="row" padding={10} gap={10}>
+33 |         <Container flexGrow={1} backgroundOpacity={0.5} hover={{ backgroundOpacity: 1 }} backgroundColor="red" />
+34 |         <Container flexGrow={1} backgroundOpacity={0.5} hover={{ backgroundOpacity: 1 }} backgroundColor="blue" />
+35 |       </Fullscreen>
+36 |     </Canvas>
+37 |   )
+38 | }`}}
+39 | />
+40 | 
+41 | ## How to get started
+42 | 
+43 | > Some familiarity with
+44 | > react, threejs, and @react-three/fiber, is recommended.
+45 | 
+46 | Get started with **[building your first layout](./first-layout.md)**, take a look at our **[examples](./examples.md)** to see uikit in action, or learn more about:
+47 | 
+48 | - [All components and their properties](./components-and-properties.md)
+49 | - [Interactivity](../tutorials/interactivity.mdx)
+50 | - [Custom materials](../tutorials/custom-materials.md)
+51 | - [Custom fonts](../tutorials/custom-fonts.md)
+52 | - [Responsive user interfaces](../tutorials/responsive.md)
+53 | - [Scrolling](../tutorials/scroll.md)
+54 | - [Sizing](../tutorials/sizing.md)
+55 | - [Common pitfalls](../advanced/pitfalls.md)
+56 | - [Optimize performance](../advanced/performance.md)
+57 | - [Theming components](../advanced/theming.mdx)
+58 | 
+59 | ## Pre-styled component kits
+60 | 
+61 | We provide multiple kits containing **themable pre-styled components**.
+62 | 
+63 | | <h3>default</h3> _based on [Shadcn](https://github.com/shadcn-ui/ui)_ | <h3>apfel</h3> _inspired by AVP_                            |
+64 | | --------------------------------------------------------------------- | ----------------------------------------------------------- |
+65 | | ![Overview over all default components](./default-overview.jpg)       | ![Overview over all apfel components](./apfel-overview.jpg) |
+66 | | [View All Components](../default-kit/accordion.mdx)                   | [View All Components](../apfel-kit/button.mdx)              |
+67 | | `npm i @react-three/uikit-default`                                    | `npm i @react-three/uikit-apfel`                            |
+68 | 
+69 | ## Migration guides
+70 | 
+71 | - from [Koestlich](../migration/from-koestlich.md)
+72 | - from [HTML/CSS](../migration/from-html-css.md)
+73 | - from [Tailwind](../migration/from-tailwind.md)
+74 | 
+75 | ## Sponsors
+76 | 
+77 | This project is supported by a few companies and individuals building cutting edge 3D Web & XR experiences. Check them out!
+78 | 
+79 | ![Sponsors Overview](https://bbohlender.github.io/sponsors/screenshot.png)
+80 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/logo.svg:
+--------------------------------------------------------------------------------
+ 1 | <svg width="142" height="124" viewBox="0 0 142 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+ 2 | <g filter="url(#filter0_d_44_4371)">
+ 3 | <path d="M84.3387 51.0349L73.5343 44.7296C71.8497 43.7465 69.7651 43.7576 68.0911 44.7588L57.6118 51.026C55.992 51.9947 55 53.7455 55 55.6355V68.3645C55 70.2545 55.992 72.0053 57.6118 72.974L68.0911 79.2412C69.7651 80.2424 71.8497 80.2535 73.5343 79.2704L84.3387 72.9651C85.9865 72.0035 87 70.2369 87 68.3263V55.6737C87 53.7631 85.9865 51.9965 84.3387 51.0349Z" fill="white" fill-opacity="0.01" shape-rendering="crispEdges"/>
+ 4 | </g>
+ 5 | <path fill-rule="evenodd" clip-rule="evenodd" d="M18.0061 73.039L62.6465 98.8121L54.6465 103.431L52.6526 102.28L52.6465 102.29L14.0043 79.9662C0.612072 72.2342 -3.97652 55.1096 3.75547 41.7174L19.7555 14.0047C27.448 0.680824 44.4375 -3.92893 57.7989 3.63855C57.8681 3.67772 57.9372 3.71721 58.0061 3.75703L62.6465 6.43614L54.6465 11.0549L54.0061 10.6852C54.0055 10.6849 54.0049 10.6845 54.0043 10.6842C53.9742 10.6668 53.9441 10.6496 53.914 10.6324C44.3619 5.18346 32.1908 8.47056 26.6856 18.0057L18.7248 31.7943L18.7211 31.7965L10.6838 45.7175C5.40168 54.8663 8.16937 66.4537 16.7892 72.2782C16.7892 72.2781 16.7892 72.278 16.7891 72.2779C17.1827 72.5439 17.5884 72.7978 18.0061 73.039Z" fill="url(#paint0_radial_44_4371)" style="mix-blend-mode:screen"/>
+ 6 | <path fill-rule="evenodd" clip-rule="evenodd" d="M17.8233 49.7175C17.4991 50.2791 17.2254 50.856 17.0009 51.4429C17.3933 51.1778 17.7978 50.9246 18.2143 50.6842L62.856 24.9103L86.856 11.0539L87.4963 10.6842C87.5129 10.6746 87.5295 10.6651 87.5461 10.6555L87.6428 10.8231C95.464 6.30751 105.067 7.67493 111.329 13.5523C112.665 14.8326 113.845 16.3213 114.817 18.0047L122.778 31.7933L122.877 31.8507L130.963 45.8564C136.247 55.0085 133.476 66.601 124.849 72.4234C124.849 72.4217 124.85 72.4199 124.85 72.4182C124.458 72.6833 124.054 72.9365 123.637 73.1769L78.9954 98.9508L54.9954 112.807L54.3551 113.177C44.7892 118.7 32.5574 115.422 27.0345 105.856L19.0737 92.0678L10.3537 87.0333C8.22853 85.8063 6.27574 84.3954 4.50391 82.8322L20.1063 109.856C27.8383 123.249 44.9629 127.837 58.3551 120.105L58.3593 120.103L58.3608 120.105L127.643 80.1051C141.035 72.3731 145.623 55.2486 137.892 41.8564L121.892 14.1436C120.488 11.7131 118.776 9.57252 116.832 7.74297C108.071 -0.625443 94.5192 -2.60813 83.4963 3.75596L78.856 6.43508L54.856 20.2915L24.7907 37.6497L17.8233 49.7175Z" fill="url(#paint1_radial_44_4371)" style="mix-blend-mode:screen"/>
+ 7 | <path fill-rule="evenodd" clip-rule="evenodd" d="M117.064 37.7849L89 21.5718L88.9939 21.5823L87 20.4312L79 25.0499L123.64 50.8231C124.058 51.0642 124.464 51.318 124.857 51.5839C124.632 50.9963 124.358 50.4187 124.034 49.8564L117.064 37.7849Z" fill="url(#paint2_radial_44_4371)" style="mix-blend-mode:screen"/>
+ 8 | <path d="M79 117.426L83.6404 120.105C83.7093 120.145 83.7784 120.184 83.8476 120.223C97.209 127.791 114.198 123.181 121.891 109.857L137.497 82.8271C135.724 84.3923 133.769 85.805 131.641 87.0333L122.925 92.0655L122.922 92.0677L114.961 105.856C109.456 115.391 97.2846 118.679 87.7324 113.23L87.6422 113.178L87.6404 113.177L87 112.807L79 117.426Z" fill="url(#paint3_radial_44_4371)" style="mix-blend-mode:screen"/>
+ 9 | <defs>
+10 | 
+11 | <radialGradient id="paint0_radial_44_4371" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(-27.8535 51.8621) rotate(-12.704) scale(88.6708 105.985)">
+12 | <stop stop-color="white"/>
+13 | <stop offset="1"/>
+14 | </radialGradient>
+15 | <radialGradient id="paint1_radial_44_4371" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(151.5 62) rotate(162.263) scale(142.787 106.233)">
+16 | <stop stop-color="white"/>
+17 | <stop offset="1"/>
+18 | </radialGradient>
+19 | <radialGradient id="paint2_radial_44_4371" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(106 20) rotate(111.337) scale(34.3548 22.7222)">
+20 | <stop stop-color="white"/>
+21 | <stop offset="1"/>
+22 | </radialGradient>
+23 | <radialGradient id="paint3_radial_44_4371" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(114.5 132.5) rotate(-102.426) scale(30.2076 28.7917)">
+24 | <stop stop-color="white"/>
+25 | <stop offset="1"/>
+26 | </radialGradient>
+27 | </defs>
+28 | </svg>
+29 | 
+
+
+--------------------------------------------------------------------------------
+/docs/getting-started/vanilla.md:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Vanilla Three.js
+  3 | description: Build your first layout with with uikit and vanilla threejs.
+  4 | nav: 4
+  5 | ---
+  6 | 
+  7 | The vanilla version of uikit allows to build user interfaces with plain Three.js.
+  8 | 
+  9 | ### Differences to @react-three/uikit
+ 10 | 
+ 11 | The vanilla version of uikit (`@pmndrs/uikit`) is decoupled from react. Therefore features such providing defaults via context is not available. Furthermore, no event system is available out of the box. For interactivity, such as hover effects, developers have to attach their own event system by emitting pointer events to the UI elements:
+ 12 | 
+ 13 | ```js
+ 14 | uiElement.dispatchEvent({
+ 15 |     type: 'pointerover',
+ 16 |     distance: 0,
+ 17 |     nativeEvent: {} as any,
+ 18 |     object: x,
+ 19 |     point: new Vector3(),
+ 20 |     pointerId: -1,
+ 21 | })
+ 22 | ```
+ 23 | 
+ 24 | Aside from interactivity and contexts, every feature is available.
+ 25 | 
+ 26 | ## Building a user interface with `@pmndrs/uikit`
+ 27 | 
+ 28 | The first step is to install the dependencies.
+ 29 | 
+ 30 | `npm i three @pmndrs/uikit`
+ 31 | 
+ 32 | Next, we create the `index.js` file and import the necessary dependencies and setup a threejs scene.
+ 33 | 
+ 34 | ```js
+ 35 | import { PerspectiveCamera, Scene, WebGLRenderer } from 'three'
+ 36 | import { reversePainterSortStable, Container, Root } from '@pmndrs/uikit'
+ 37 | 
+ 38 | const camera = new PerspectiveCamera(70, 1, 0.01, 100)
+ 39 | camera.position.z = 10
+ 40 | const scene = new Scene()
+ 41 | const canvas = document.getElementById('root') as HTMLCanvasElement
+ 42 | const renderer = new WebGLRenderer({ antialias: true, canvas })
+ 43 | ```
+ 44 | 
+ 45 | Now, we can start defining the actual layout. Every layout must start with a `Root` element (or an element that wraps the `Root` element, such as the `Fullscreen` component). In this example, the `Root` is of size 2 by 1 (three.js units). The `Root` has a horizontal (row) flex-direction, with 2 `Container` children, filling its width equally with a margin around them.
+ 46 | 
+ 47 | More in-depth information on the Flexbox properties can be found [here](https://yogalayout.dev/docs/).
+ 48 | 
+ 49 | ```js
+ 50 | const root = new Root(camera, renderer, undefined, {
+ 51 |     flexDirection: "row",
+ 52 |     padding: 10,
+ 53 |     gap: 10
+ 54 | })
+ 55 | scene.add(root)
+ 56 | 
+ 57 | const defaultProperties = {
+ 58 |     backgroundOpacity: 0.5,
+ 59 | }
+ 60 | 
+ 61 | const container1 = new Container(
+ 62 |     {
+ 63 |         flexGrow: 1,
+ 64 |         hover: { backgroundOpacity: 1 }
+ 65 |         backgroundColor: "red"
+ 66 |     },
+ 67 |     defaultProperties
+ 68 | )
+ 69 | root.add(container1)
+ 70 | 
+ 71 | const container2 = new Container(
+ 72 |     {
+ 73 |         flexGrow: 1,
+ 74 |         backgroundOpacity: 0.5,
+ 75 |         hover: { backgroundOpacity: 1 },
+ 76 |         backgroundColor: "blue"
+ 77 |     },
+ 78 |     defaultProperties
+ 79 | )
+ 80 | root.add(container2)
+ 81 | ```
+ 82 | 
+ 83 | All properties of the user interface elements can be modified using `container.setProperties({...})`. The last step is to setup the frameloop, setup resizing, enable local clipping, and setup the transparency sort required for uikit. Notice that the root component needs to be updated every frame using `root.update(delta)`.
+ 84 | 
+ 85 | ```js
+ 86 | renderer.setAnimationLoop(animation)
+ 87 | renderer.localClippingEnabled = true
+ 88 | renderer.setTransparentSort(reversePainterSortStable)
+ 89 | 
+ 90 | function updateSize() {
+ 91 |   renderer.setSize(window.innerWidth, window.innerHeight)
+ 92 |   renderer.setPixelRatio(window.devicePixelRatio)
+ 93 |   camera.aspect = window.innerWidth / window.innerHeight
+ 94 |   camera.updateProjectionMatrix()
+ 95 | }
+ 96 | 
+ 97 | updateSize()
+ 98 | window.addEventListener('resize', updateSize)
+ 99 | 
+100 | let prev: number | undefined
+101 | function animation(time: number) {
+102 |   const delta = prev == null ? 0 : time - prev
+103 |   prev = time
+104 |   root.update(delta)
+105 |   renderer.render(scene, camera)
+106 | }
+107 | ```
+108 | 
+109 | If you use vite (`npm i vite`), you can create a `index.html` file, add the following content, and run `npx vite`.
+110 | 
+111 | ```html
+112 | <!doctype html>
+113 | <html lang="en">
+114 |   <head>
+115 |     <meta charset="UTF-8" />
+116 |     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+117 |     <title>Document</title>
+118 |     <script type="module" src="index.jsx"></script>
+119 |   </head>
+120 |   <body style="margin: 0;">
+121 |     <div id="root" style="width: 100dvw; height: 100dvh;"></div>
+122 |   </body>
+123 | </html>
+124 | ```
+125 | 
+126 | The result should look like this
+127 | 
+128 | ![Two containers in a row layout - one red and one blue with hover effects](./basic-example.gif)
+129 | 
+130 | ### Disposing
+131 | 
+132 | Call `destroy()` on elements to free resources:
+133 | 
+134 | ```js
+135 | root.destroy()
+136 | ```
+137 | 
+138 | 
+
+
+--------------------------------------------------------------------------------
+/docs/migration/from-html-css.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Migration from HTML/CSS
+ 3 | description: How to migrate a user interface from HTML/CSS to uikit.
+ 4 | nav: 16
+ 5 | ---
+ 6 | 
+ 7 | uikit is inspired by HTML/CSS. Therefore, many properties are similar with minor syntactical difference.
+ 8 | 
+ 9 | ## No more CSS files
+10 | 
+11 | In uikit classes can be defined directly in the file. Styles should not be seperated from their usage.
+12 | The use of inline styles is recommended and supported through the typescript type system.
+13 | 
+
+
+--------------------------------------------------------------------------------
+/docs/migration/from-koestlich.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Migration from Koestlich
+ 3 | description: How to migrate a user interface from koestlich to uikit.
+ 4 | nav: 14
+ 5 | ---
+ 6 | 
+ 7 | This guide is intended for developers migrating their user interface from Koestlich to uikit. The migration involves several changes to properties and components to better align with uikit's design principles. Here's what you need to know:
+ 8 | 
+ 9 | ## General Changes
+10 | 
+11 | - **Index Property Removal**: The index property is no longer needed. UI elements will always be in the correct order, regardless of when they are inserted into the UI.
+12 | - **Layout Animations Removal**: Layout animations have been removed, making the ID and animation properties unnecessary.
+13 | - **Cursor Support**: Like in CSS, the cursor property allows to specify the type of cursor shown when hovering
+14 | - **Conditional Properties**: The hover and dark properties allow to specify how properties that are only applied when the component is hovered or active or when dark mode is enabled. 
+15 | - **Simpler Responsiveness**: Properties that are only active based on the current screen size can be applied using the lg, md, and sm properties.
+16 | - **No Suspense needed**: Similar to react-dom, images, text, svgs, and icons don't suspense anymore. Therefore, uikit doesn't require setting suspense boundaries for their components.
+17 | - **Event propagation**: behaves correctly
+18 | - **Default Animations**: no default animations
+19 | - **Scroll Experience**: Support for scrollbar and support for overscroll rubberbanding.
+20 | 
+21 | ## Property Renaming
+22 | 
+23 | - **Material Property**: The material property has been renamed to panelMaterialClass.
+24 | - **Line Height**: The lineHeightMultiplier property has been renamed to lineHeight to better align with CSS naming conventions.
+25 | - **Word Break**: The wrapper property was renamed to wordBreak to better align with CSS naming conventions.
+26 | 
+27 | ## Component Changes
+28 | 
+29 | - **Object to Content Component**: The Object component is replaced with the Content component. The depth property has been removed. The Content component now allows any R3F (React Three Fiber) component to be placed inside. To mimic the behavior of the Object component, use
+30 |     ```jsx
+31 |     <Content>
+32 |         <primitive object={'...'}>
+33 |     </Content>
+34 |     ```
+35 | - **SVG Depth Removal**: The SVG component no longer has a depth property, as SVGs are considered 2D planes.
+36 | - **Box Component Removal**: The Box component has been removed.
+37 | - **DefaultStyleProvider**: DefaultStyleProvider is renamed to DefaultProperties
+38 | 
+39 | ## Font Families
+40 | 
+41 | - Font families are now provided as
+42 |     ```jsx
+43 |     <FontFamilies roboto={{ normal: "{url}", bold: "{url}" }}>
+44 |     ```
+45 |     instead of
+46 |     ```jsx
+47 |     <FontFamilies robotoNormal="url" robotoBold="bold">
+48 |     ```
+49 |     When using font families, utilize them as
+50 |     ```jsx
+51 |     <Text fontFamily="roboto" fontWeight="bold">
+52 |     ```
+53 |     instead of
+54 |     ```jsx
+55 |     <Text fontFamily="robotoBold">
+56 |     ```
+57 | 
+58 | 
+59 | ## Defaults
+60 | 
+61 | The defaults of the yoga layout engine have changed to match the web defaults. Therefore, some properties turn unnecassary while others need to be added.
+62 | 
+63 | - **flexDirection** defaults to `row` instead of `column`
+64 | - **alignContent** defaults to `stretch` instead of `flex-start`
+65 | - **flexShrink** defaults to `1` instead of `0`
+66 | 
+67 | In most cases explicitly specifying the flexDirection is enough.
+68 | 
+69 | ## Migration Steps
+70 | 
+71 | - Remove the index property from your UI elements. The order will be automatically managed.
+72 | - Remove any ID and animation properties related to layout animations.
+73 | - Update the material property to panelMaterialClass as applicable.
+74 | - Replace Object components with Content components. Use
+75 |     ```jsx
+76 |     <Content>
+77 |         <primitive object=\{...}>
+78 |     <Content>
+79 |     ```
+80 |     to replicate the previous Object component's behavior.
+81 | - Modify your font family declarations to the new format and adjust how you specify font weights in text components.
+82 | - Rename lineHeightMultiplier to lineHeight and wrapper to wordBreak in your code to align with CSS naming.
+83 | - Rname DefaultStyleProvider to DefaultProperties
+84 | - Remove the depth property from all SVG components
+85 | - Replace usages of the Box component with a Content component containing an Object3D with a BoxGeomtry.
+86 | - Adapt the components to use to the new defaults, which most likely means explicitly setting `flexDirection` to `row` and `flexShrink` to `0`.
+87 | 
+88 | By following these steps, you should be able to smoothly transition your user interface from Koestlich to uikit, taking advantage of the latter's streamlined properties and components.
+
+
+--------------------------------------------------------------------------------
+/docs/migration/from-tailwind.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Migration from Tailwind
+ 3 | description: How to migrate a user interface from tailwind to uikit.
+ 4 | nav: 15
+ 5 | ---
+ 6 | 
+ 7 | uikit is inspired by tailwind. Therefore, many properties are similar with minor syntactical difference. The major differences are **sizing** and **defaults**.
+ 8 | 
+ 9 | ## Sizing
+10 | 
+11 | In contrast to tailwind, uikit's core units are pixels. Therefore, sizes such as `p-3`, which translates to `padding: 0.75rem` or `padding: 16px` would be expressed as `padding={16}` in uikit. The rule for sizes is to multiply the tailwind value times 4.
+12 | 
+13 | Other sizes such as border radii (e.g. `rounded-md`) must be converted by looking into the [Tailwind Documentation](https://tailwindcss.com/docs). In this case `rounded-md` translates to `borderRadius={6}`.
+14 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/custom-fonts.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Custom Fonts
+ 3 | description: How to build, set up, and use custom fonts.
+ 4 | nav: 10
+ 5 | ---
+ 6 | 
+ 7 | The `Text` component enables rendering text using multi-channel signed distance functions (MSDF). By default, uikit provides the Inter font. A custom font can be converted from a `.ttf` file to an MSDF representation as a JSON and a corresponding texture using [msdf-bmfont-xml](https://www.npmjs.com/package/msdf-bmfont-xml).
+ 8 | 
+ 9 | ## How to set up custom fonts?
+10 | 
+11 | This example shows how to compile the `Roboto` font family with the weight `medium`.
+12 | 
+13 | The first step is to download a `.ttf` file for the font family with the correct weights. After downloading the font to `roboto.ttf`, the overlaps need to be removed.
+14 | 
+15 | > This is necessary because msdf-bmfont has a problem with overlapping paths, creating weird artificats.
+16 | 
+17 | ##### Linux
+18 | ```bash
+19 | fontforge -lang=ff -c 'Open($1); SelectAll(); RemoveOverlap(); Generate($2)' roboto.ttf fixed-roboto.ttf 
+20 | ```
+21 | 
+22 | ##### Windows
+23 | 1. Install [FontForge](https://fontforge.org/en-US/downloads/windows-dl/).
+24 | 2. Open the `.ttf` font.
+25 | 3. Select all the characters using `CTRL+A` or navigating to `Edit > Select > Select All`.
+26 | 4. Remove overlap using `CTRL+Shift+O` or navigating to `Element > Overlap > Remove Overlap`.
+27 | 5. Generate fonts using `CTRL+Shift+G` or navigating to `File > Generate font(s)` in Truetype (`.ttf`) font.
+28 | > Tip: give a new name to the new generated font.
+29 | 
+30 | #### Generating the msdf font
+31 | Next, we use `msdf-bmfont` to convert the `.ttf` file to a texture and a `.json` file. For that we need the *FontForge* generated font and a charset file containing all the characters we want to include in our msdf-font.
+32 | 
+33 | ```bash
+34 | npx msdf-bmfont -f json fixed-roboto.ttf -i charset.txt -m 256,512 -o public/roboto -s 48
+35 | ```
+36 | 
+37 | example charset.txt:
+38 | ```txt
+39 |  !\"#$%&'()*+,-./0123456789:;<=>?@ÄÖÜABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`äöüabcdefghijklmnopqrstuvwxyz{|}~ß§
+40 | ```
+41 | 
+42 | > [!IMPORTANT]
+43 | > Only a single texture file is supported by uikit, so make sure the generated texture is a single file. Otherwise adjust the texture by increasing the resolution or by decreasing the font size.
+44 | 
+45 | #### Inlining the texture
+46 | If you are using some kind of hashes in your filenames, you won't be able to use the separate texture. In that case you need to inline the texture in the `.json` file. Here's a sample script to do it:
+47 | ```ts showLineNumbers
+48 | import { writeFile } from "fs/promises";
+49 | import generateBMFont from "msdf-bmfont-xml";
+50 | 
+51 | const charset =
+52 |   "’|Wj@$()[]{}/\\w%MQm0fgipqy!#&123456789?ABCDEFGHIJKLNOPRSTUVXYZbdhkl;t<>aceos:nruvxz~+=_^*-\"',`. €£";
+53 | 
+54 | generateBMFont(
+55 |   "src/assets/fonts/Inter-Bold.woff",
+56 |   {
+57 |     smallSize: true,
+58 |     charset,
+59 |     outputType: "json",
+60 |   },
+61 |   async (
+62 |     error: Error | undefined,
+63 |     textures: { filename: string; texture: Buffer }[],
+64 |     font: { filename: string; data: string }
+65 |   ) => {
+66 |     if (error) {
+67 |       throw error;
+68 |     }
+69 |     const pages = await Promise.all(
+70 |       textures.map((texture) => "data:image/png;base64," + texture.texture.toString("base64"))
+71 |     );
+72 |     const json = JSON.parse(font.data);
+73 | 
+74 |     json.pages = pages;
+75 |     await writeFile(font.filename, JSON.stringify(json));
+76 |   }
+77 | );
+78 | ```
+79 | 
+80 | 
+81 | #### Implementing the generated font
+82 | Lastly, we add the font family via the `FontFamilyProvider`. It's necessary to host the `.json` file and the texture on the same URL and provide the URL to the `.json` file to the  `FontFamilyProvider`.
+83 | 
+84 | Repeat the previous process for other weights, such as bold, to support different weights.
+85 | 
+86 | ```tsx showLineNumbers
+87 | <FontFamilyProvider
+88 |   roboto={{
+89 |     medium: "url-to-medium.json",
+90 |     bold: "url-to-bold.json",
+91 |   }}
+92 | >
+93 |   <Text fontFamily="roboto">Test123</Text>
+94 | </FontFamilyProvider>
+95 | ```
+96 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/custom-materials.jpg:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/tutorials/custom-materials.jpg
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/custom-materials.mdx:
+--------------------------------------------------------------------------------
+  1 | ---
+  2 | title: Custom Materials
+  3 | description: How to use custom materials in uikit.
+  4 | nav: 9
+  5 | ---
+  6 | 
+  7 | uikit allows to provide custom material classes for the background and border on the `Text`, `Container`, and `Image` components. This allows to change the appearance and use more complex (and computationally expensive) materials such as a `MeshPhysicalMaterial`.
+  8 | 
+  9 | In the following example, we are creating a text element with a material based on the phong material with high specular and shininess. Using the border properties, we can create a border that creates the illusion of a 3D Mesh. Specifically, the `borderBend` property allows bending the normals on the border to create this effect efficiently.
+ 10 | 
+ 11 | <Sandpack
+ 12 |   template="react-ts"
+ 13 |   customSetup={{
+ 14 |     dependencies: {
+ 15 |       'three': 'latest',
+ 16 |       '@react-three/fiber': '<9',
+ 17 |       '@react-three/uikit': 'latest',
+ 18 |       '@react-three/drei': '<10',
+ 19 |     },
+ 20 |   }}
+ 21 |   files={{"/App.tsx": `import { Canvas } from '@react-three/fiber'
+ 22 | import { OrbitControls } from '@react-three/drei'
+ 23 | import { Root, Text } from '@react-three/uikit'
+ 24 | import { MeshPhongMaterial } from 'three'
+ 25 | 
+ 26 | class FancyMaterial extends MeshPhongMaterial {
+ 27 |   constructor() {
+ 28 |     super({
+ 29 |       specular: 0x111111,
+ 30 |       shininess: 100,
+ 31 |     })
+ 32 |   }
+ 33 | }
+ 34 | 
+ 35 | export default function App() {
+ 36 |   return (
+ 37 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+ 38 |       <OrbitControls />
+ 39 |       <directionalLight position={[1,0,1]} intensity={10} />
+ 40 |       <Root>
+ 41 |         <Text
+ 42 |           backgroundColor="black"
+ 43 |           color="white"
+ 44 |           padding={24}
+ 45 |           borderRadius={32}
+ 46 |           fontSize={32}
+ 47 |           borderColor="black"
+ 48 |           borderBend={0.3}
+ 49 |           borderWidth={8}
+ 50 |           panelMaterialClass={FancyMaterial}
+ 51 |         >
+ 52 |           I look fancy
+ 53 |         </Text>
+ 54 |       </Root>
+ 55 |     </Canvas>
+ 56 |   )
+ 57 | }`}}
+ 58 | />
+ 59 | 
+ 60 | Let's go through the above example step by step. First, we are importing the necessary dependencies.
+ 61 | 
+ 62 | ```tsx showLineNumbers
+ 63 | import { Canvas } from '@react-three/fiber'
+ 64 | import { OrbitControls } from '@react-three/drei'
+ 65 | import { Root, Text } from '@react-three/uikit'
+ 66 | import { MeshPhongMaterial } from 'three'
+ 67 | ```
+ 68 | 
+ 69 | Then, we create a class for the material we want to adapt by changingthe default values.
+ 70 | 
+ 71 | ```tsx showLineNumbers=5
+ 72 | class FancyMaterial extends MeshPhongMaterial {
+ 73 |   constructor() {
+ 74 |     super({
+ 75 |       specular: 0x111111,
+ 76 |       shininess: 100,
+ 77 |     })
+ 78 |   }
+ 79 | }
+ 80 | ```
+ 81 | 
+ 82 | Lastly, the UI can be defined using a `Root` and `Text` component.
+ 83 | 
+ 84 | ```tsx {15} showLineNumbers=15
+ 85 | export default function App() {
+ 86 |   return (
+ 87 |     <Canvas>
+ 88 |       <OrbitControls />
+ 89 |       <Root>
+ 90 |         <Text
+ 91 |           backgroundColor="black"
+ 92 |           color="white"
+ 93 |           padding={24}
+ 94 |           borderRadius={32}
+ 95 |           fontSize={32}
+ 96 |           borderColor="black"
+ 97 |           borderBend={0.3}
+ 98 |           borderWidth={8}
+ 99 |           panelMaterialClass={FancyMaterial}
+100 |         >
+101 |           I look fancy
+102 |         </Text>
+103 |       </Root>
+104 |     </Canvas>
+105 |   )
+106 | }
+107 | ```
+108 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/interactivity.gif:
+--------------------------------------------------------------------------------
+https://raw.githubusercontent.com/pmndrs/uikit/main/docs/tutorials/interactivity.gif
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/interactivity.mdx:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Interactivity
+ 3 | description: How to make the UI elements interactive.
+ 4 | nav: 5
+ 5 | ---
+ 6 | 
+ 7 | Every UI component can receive the same events as [any other R3F element](https://docs.pmnd.rs/react-three-fiber/api/events). In addition to these event listeners, uikit provides properties such as `hover` and `active` for all components. These properties allow the element to overwrite other properties if it is hovered or clicked.
+ 8 | 
+ 9 | The following example shows a Root element that is `black` by default turns `red` when the user hovers and is `green` as long as the user clicks on it.
+10 | 
+11 | ```jsx
+12 | <Root
+13 |   backgroundColor="black"
+14 |   hover={{ backgroundColor: 'red' }}
+15 |   active={{ backgroundColor: 'green' }}
+16 |   sizeX={1}
+17 |   sizeY={1}
+18 | />
+19 | ```
+20 | 
+21 | <Sandpack
+22 |   template="react-ts"
+23 |   customSetup={{
+24 |     dependencies: {
+25 |       'three': 'latest',
+26 |       '@react-three/fiber': '<9',
+27 |       '@react-three/uikit': 'latest',
+28 |       '@react-three/drei': '<10',
+29 |     },
+30 |   }}
+31 |   files={{
+32 |     '/App.tsx': `import { Canvas } from "@react-three/fiber";
+33 | import { OrbitControls } from "@react-three/drei";
+34 | import { Root, Container } from "@react-three/uikit";
+35 | 
+36 | export default function App() {
+37 |   return (
+38 |     <Canvas style={{ position: "absolute", inset: "0", touchAction: "none" }} gl={{ localClippingEnabled: true }}>
+39 |       <OrbitControls />
+40 |       <Root
+41 |         backgroundColor="black"
+42 |         hover={{ backgroundColor: 'red' }}
+43 |         active={{ backgroundColor: 'green' }}
+44 |         sizeX={1}
+45 |         sizeY={1}
+46 |     />
+47 |     </Canvas>
+48 |   )
+49 | }`}}
+50 | />
+51 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/responsive.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Responsive
+ 3 | description: How to make the ui elements responsive.
+ 4 | nav: 6
+ 5 | ---
+ 6 | 
+ 7 | Building responsive UIs in uikit is inspired by [responsiveness in tailwind](https://tailwindcss.com/docs/responsive-design). Using the concept of breakponts UI elements can be styled based on the size of the root element. These breakpoints are
+ 8 | - `sm` (min root width: 640px)
+ 9 | - `md` (min root width: 768px)
+10 | - `lg` (min root width: 1024px)
+11 | - `xl` (min root width: 1280px)
+12 | - `2xl` (min root width: 1536px)
+13 | 
+14 | ```jsx showLineNumbers
+15 | <Container
+16 |     flexDirection="column"
+17 |     md={{ flexDirection: "row" }}
+18 | >
+19 | ```
+20 | 
+21 | This code defines a container that, by default, puts its positions its children in a vertical column, but puts them in a horizontal row once the width of the root container exceeds 768px.
+22 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/scroll.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Scrolling
+ 3 | description: How to use overflow, scrolling, and clipping.
+ 4 | nav: 7
+ 5 | ---
+ 6 | 
+ 7 | uikit handles clipping and scrolling out of the box by specifying `overflow="scroll"` or `overflow="hidden"` on any UI element.
+ 8 | 
+ 9 | However, it is required to configure three.js to support visual clipping, which is done via
+10 | 
+11 | ```jsx
+12 | <Canvas gl={{ localClippingEnabled: true }}>
+13 | ```
+14 | 
+15 | ## onScroll
+16 | 
+17 | If a `Container` component uses `overflow="scroll"`, the `onScroll` event is called when the user scrolls through their scroll wheel or touching. `onScroll` receives the new `x` and `y` coordinates for the scroll position, the signal containing the current `scrollPosition`, and the optional event that caused the scrolling. The listener passed to `onScroll` can return `false` to prevent setting the new `x` and `y` scroll position.
+18 | 
+19 | ## Scrollbars
+20 | 
+21 | uikit renders scrollbars if the content overflows an element that has the property `overflow="scroll"`. The scrollbar can be styled similarly to the background panel of any component via the following properties.
+22 | 
+23 | | Property                         | Type                |
+24 | | -------------------------------- | ------------------- |
+25 | | scrollbarPanelMaterialClass      | Material class      |
+26 | | scrollbarBackgroundOpacity       | number              |
+27 | | scrollbarBackgroundColor         | ColorRepresentation |
+28 | | scrollbarWidth                   | number              |
+29 | | scrollbarBorderRadius            | number              |
+30 | | scrollbarBorderLeftRadius        | number              |
+31 | | scrollbarBorderRightRadius       | number              |
+32 | | scrollbarBorderTopRadius         | number              |
+33 | | scrollbarBorderBottomRadius      | number              |
+34 | | scrollbarBorderTopLeftRadius     | number              |
+35 | | scrollbarBorderTopRightRadius    | number              |
+36 | | scrollbarBorderBottomRightRadius | number              |
+37 | | scrollbarBorderBottomLeftRadius  | number              |
+38 | 
+
+
+--------------------------------------------------------------------------------
+/docs/tutorials/sizing.md:
+--------------------------------------------------------------------------------
+ 1 | ---
+ 2 | title: Sizing
+ 3 | description: How to size elements and use pixelSize, sizeX, and sizeY.
+ 4 | nav: 8
+ 5 | ---
+ 6 | 
+ 7 | **TLDR**: The size of the Root element is defined in three.js units through the optional `sizeX` and `sizeY` parameters. The `pixelSize` parameter allows you to define how big one pixel in the UI is in relation to one three.js unit.
+ 8 | 
+ 9 | 
+10 | **Important**
+11 | 
+12 | The `pixelSize` should be set so that the default font height (`16px`) is reasonably sized. All pre-built components adhere to this sizing concept.
+13 | 
+14 | <details>
+15 |   <summary>In Depth Explanation</summary>
+16 | 
+17 |   The root element size is specified in three.js units using the optional `sizeX` and `sizeY` parameters.
+18 |   
+19 |   Declaring the size of elements inside the root element using parameters, such as the `width` of an image or the `fontSize` of a text element, is based on `pixel` units, which strongly relate to the `px` unit in CSS. The relation between three.js units and pixel units can be set using the `pixelSize` property. The property expresses the size of one pixel in three.js units and defaults to `0.002`. With this default, `500px` is equal to 1 three.js unit. To make interoperability between code bases and different component libraries easier, we encourage to use the intuition of pixel sizes from the web. For instance, the default text height relates to 16 pixels. If these pixel sizes appear too small or too high in the szene, the `pixelSize` should be increased or decreased respectively.
+20 | </details>
+21 | 
+
+
+--------------------------------------------------------------------------------
