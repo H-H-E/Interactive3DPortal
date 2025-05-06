@@ -6,6 +6,7 @@ import { Controls } from "../hooks/useControls";
 import { PORTAL_INTERACTION_DISTANCE } from "../lib/constants";
 import { usePortals } from "../lib/stores/usePortals";
 import { useIsMobile } from "../hooks/use-is-mobile";
+import { Model as HusseinCharacter } from "../models/Husseinlopol";
 
 // Character properties
 const CHARACTER_SPEED = 5;
@@ -267,31 +268,8 @@ export function PlayerController() {
   
   return (
     <group ref={characterRef} name="character">
-      {/* Character model here */}
-      <mesh position={[0, CHARACTER_HEIGHT / 2, 0]} castShadow>
-        <capsuleGeometry args={[0.4, CHARACTER_HEIGHT - 0.8, 8, 16]} />
-        <meshStandardMaterial 
-          color={isNearPortal ? "#42b4f4" : "#4285f4"} 
-          emissive={isNearPortal ? "#42b4f4" : "#000000"}
-          emissiveIntensity={isNearPortal ? 0.3 : 0}
-        />
-      </mesh>
-      
-      {/* Character eyes for direction reference */}
-      <mesh position={[0, CHARACTER_HEIGHT - 0.3, 0.35]} castShadow>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshStandardMaterial color="white" />
-      </mesh>
-      
-      <mesh position={[0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshStandardMaterial color="black" />
-      </mesh>
-      
-      <mesh position={[-0.2, CHARACTER_HEIGHT - 0.3, 0.4]} castShadow>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshStandardMaterial color="black" />
-      </mesh>
+      {/* Optimized 3D Character model */}
+      <HusseinCharacter />
       
       {/* Interaction indicator when near portal */}
       {isNearPortal && (
