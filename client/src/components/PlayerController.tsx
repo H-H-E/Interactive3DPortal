@@ -24,6 +24,9 @@ export function PlayerController() {
   const targetRotationRef = useRef(0);
   const lastMouseXRef = useRef(0);
   const [autoRotate, setAutoRotate] = useState(false);
+  const prevAutoRotateRef = useRef(false);
+  const cameraPositionRef = useRef(new THREE.Vector3());
+  const cameraTargetRef = useRef(new THREE.Vector3());
   
   const isMobile = useIsMobile();
   
@@ -51,6 +54,8 @@ export function PlayerController() {
         
         const handleMouseDown = (e: MouseEvent) => {
           document.body.style.cursor = 'grabbing';
+          // Store current character rotation when starting mouse control
+          prevAutoRotateRef.current = autoRotate;
           setAutoRotate(true);
           lastMouseXRef.current = e.clientX;
         };
@@ -127,17 +132,38 @@ export function PlayerController() {
     const moveForward = new THREE.Vector3();
     const moveRight = new THREE.Vector3();
     
-    // Calculate movement direction based on camera orientation
+    // Calculate movement direction
     if (forward) {
-      moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
+      // Mobile always uses camera-relative movement
+      if (isMobile) {
+        moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
+      } else {
+        // On desktop, movement depends on control mode
+        moveForward.copy(cameraDirection).multiplyScalar(CHARACTER_SPEED * delta);
+      }
     } else if (backward) {
-      moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      if (isMobile) {
+        moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      } else {
+        moveForward.copy(cameraDirection).multiplyScalar(-CHARACTER_SPEED * delta * 0.5);
+      }
     }
     
+    // Use consistent movement regardless of control method
     if (leftward && !autoRotate) {
-      moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+      if (isMobile) {
+        // On mobile, left/right need to strafe instead of rotate
+        moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+      } else {
+        moveRight.copy(rightVector).multiplyScalar(-CHARACTER_SPEED * delta * 0.8);
+      }
     } else if (rightward && !autoRotate) {
-      moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      if (isMobile) {
+        // On mobile, left/right need to strafe instead of rotate
+        moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      } else {
+        moveRight.copy(rightVector).multiplyScalar(CHARACTER_SPEED * delta * 0.8);
+      }
     }
     
     // Combine movement vectors
@@ -147,8 +173,16 @@ export function PlayerController() {
     if (moving) {
       characterPosition.add(velocity);
       
-      // Face character in movement direction if using camera-relative movement
-      if ((forward || backward) && (leftward || rightward) && !autoRotate) {
+      // Make character face movement direction
+      if (isMobile) {
+        // For mobile, always face the direction of movement
+        const moveDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
+        if (moveDirection.length() > 0.1) {
+          const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
+          characterRef.current.rotation.y = targetRotation;
+        }
+      } else if ((forward || backward) && (leftward || rightward) && !autoRotate) {
+        // For desktop, face direction only when moving diagonally
         const moveDirection = new THREE.Vector3(velocity.x, 0, velocity.z).normalize();
         if (moveDirection.length() > 0.1) {
           const targetRotation = Math.atan2(moveDirection.x, moveDirection.z);
@@ -157,23 +191,45 @@ export function PlayerController() {
       }
     }
     
+    // Calculate the target camera position regardless of control method
+    const targetCameraPos = new THREE.Vector3(
+      -Math.sin(targetRotationRef.current) * CAMERA_DISTANCE,
+      CAMERA_HEIGHT,
+      -Math.cos(targetRotationRef.current) * CAMERA_DISTANCE
+    ).add(characterPosition);
+    
+    const targetLookAt = new THREE.Vector3(
+      characterPosition.x,
+      characterPosition.y + CHARACTER_HEIGHT / 2,
+      characterPosition.z
+    );
+    
     // Position camera to follow character (if not using orbit controls)
     if (isMobile) {
-      // Mobile uses orbit controls
+      // On mobile, update the orbit controls target to follow the character
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.target.set(
+          characterPosition.x,
+          characterPosition.y + CHARACTER_HEIGHT / 2,
+          characterPosition.z
+        );
+      }
     } else {
-      // On desktop, position camera behind character at fixed distance
-      const cameraOffset = new THREE.Vector3(
-        -Math.sin(targetRotationRef.current) * CAMERA_DISTANCE,
-        CAMERA_HEIGHT,
-        -Math.cos(targetRotationRef.current) * CAMERA_DISTANCE
-      );
+      // Store current camera position and target for smooth transition
+      if (!cameraPositionRef.current.equals(camera.position)) {
+        cameraPositionRef.current.copy(camera.position);
+      }
       
-      camera.position.copy(characterPosition).add(cameraOffset);
-      camera.lookAt(
-        characterPosition.x,
-        characterPosition.y + CHARACTER_HEIGHT / 2,
-        characterPosition.z
-      );
+      if (!cameraTargetRef.current.equals(targetLookAt)) {
+        cameraTargetRef.current.copy(targetLookAt);
+      }
+      
+      // Smooth transition for camera position and target
+      camera.position.lerp(targetCameraPos, 0.05);
+      cameraTargetRef.current.lerp(targetLookAt, 0.05);
+      
+      // Make the camera look at the character
+      camera.lookAt(cameraTargetRef.current);
     }
     
     // Check for proximity to portals
@@ -254,6 +310,7 @@ export function PlayerController() {
       {/* Orbit controls for mobile devices only */}
       {isMobile && (
         <OrbitControls 
+          ref={orbitControlsRef}
           makeDefault
           target={new THREE.Vector3(
             characterRef.current?.position.x || 0,

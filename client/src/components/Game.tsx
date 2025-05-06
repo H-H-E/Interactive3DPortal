@@ -16,6 +16,7 @@ export default function Game() {
   const { phase, start } = useGame();
   const { isInPortal, currentScene, setCurrentScene } = usePortals();
   const audio = useAudio();
+  const isMobile = useIsMobile();
 
   // Initialize game
   useEffect(() => {
@@ -25,9 +26,13 @@ export default function Game() {
     setCurrentScene("city");
     
     // Add helper text to show controls
-    console.log("Controls: WASD to move, Mouse to look around (hold and drag)");
-    console.log("Press E near portals to interact with them");
-  }, [start, setCurrentScene]);
+    if (isMobile) {
+      console.log("Mobile controls: Use the joystick to move, tap E button to interact");
+    } else {
+      console.log("Controls: WASD to move, Mouse to look around (hold and drag)");
+      console.log("Press E near portals to interact with them");
+    }
+  }, [start, setCurrentScene, isMobile]);
   
   // Effect for portal transitions
   useEffect(() => {
