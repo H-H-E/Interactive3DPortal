@@ -2,11 +2,12 @@ import { useRef, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useKeyboardControls } from "@react-three/drei";
 import * as THREE from "three";
-import { Controls } from "../hooks/useControls";
+import type { Controls } from "../hooks/useControls";
 import { PORTAL_INTERACTION_DISTANCE } from "../lib/constants";
 import { usePortals } from "../lib/stores/usePortals";
 import { useIsMobile } from "../hooks/use-is-mobile";
-import { Model as HusseinCharacter } from "../models/Husseinlopol";
+// Import the new component with Mixamo animations
+import { ModelWithAnimations } from "../models/HusseinWithAnimations";
 
 // Character properties
 const CHARACTER_SPEED = 5;
@@ -20,7 +21,8 @@ const MOUSE_SMOOTHING = 0.1;
 export function PlayerController() {
   // Character and camera references
   const characterRef = useRef<THREE.Group>(null);
-  const orbitControlsRef = useRef<any>(null);
+  // Use React.MutableRefObject<any> for OrbitControls to avoid type issues
+  const orbitControlsRef = useRef<React.MutableRefObject<any>>(null);
   const velocityRef = useRef(new THREE.Vector3());
   const targetRotationRef = useRef(0);
   const lastMouseXRef = useRef(0);
@@ -28,6 +30,10 @@ export function PlayerController() {
   const prevAutoRotateRef = useRef(false);
   const cameraPositionRef = useRef(new THREE.Vector3());
   const cameraTargetRef = useRef(new THREE.Vector3());
+  
+  // Enhanced animation state to match available Mixamo animations
+  const [animationState, setAnimationState] = useState<'idle' | 'walk' | 'run' | 'jump' | 'leftStrafe' | 'rightStrafe' | 'stand' | 'jumpingDown'>('idle');
+  const jumpingRef = useRef(false);
   
   const isMobile = useIsMobile();
   
@@ -92,7 +98,7 @@ export function PlayerController() {
     if (!characterRef.current) return;
     
     // Get keyboard controls state
-    const { forward, backward, leftward, rightward, interact } = getKeys();
+    const { forward, backward, leftward, rightward, interact, jump } = getKeys();
     
     // Reference the character position
     const characterPosition = characterRef.current.position;
@@ -103,6 +109,55 @@ export function PlayerController() {
     
     // Calculate movement direction
     const moving = forward || backward || leftward || rightward;
+    
+    // Handle jump animation
+    if (jump && !jumpingRef.current) {
+      jumpingRef.current = true;
+      setAnimationState('jump');
+      
+      // Reset jump state after animation time
+      setTimeout(() => {
+        jumpingRef.current = false;
+        if (!moving) {
+          setAnimationState('idle');
+        }
+      }, 1200); // Approximate jump animation length
+    }
+    
+    // Update animation state based on movement (if not currently jumping)
+    if (!jumpingRef.current) {
+      if (!moving) {
+        // Clearly not moving - use idle
+        if (animationState !== 'idle') {
+          console.log('Setting animation to idle');
+          setAnimationState('idle');
+        }
+      } else if (forward && !backward) {
+        // Forward movement - use run
+        if (animationState !== 'run') {
+          console.log('Setting animation to run');
+          setAnimationState('run');
+        }
+      } else if (leftward && !rightward && !forward && !backward) {
+        // Pure left movement - use left strafe
+        if (animationState !== 'leftStrafe') {
+          console.log('Setting animation to leftStrafe');
+          setAnimationState('leftStrafe');
+        }
+      } else if (rightward && !leftward && !forward && !backward) {
+        // Pure right movement - use right strafe
+        if (animationState !== 'rightStrafe') {
+          console.log('Setting animation to rightStrafe');
+          setAnimationState('rightStrafe');
+        }
+      } else {
+        // Other movement - use walk
+        if (animationState !== 'walk') {
+          console.log('Setting animation to walk');
+          setAnimationState('walk');
+        }
+      }
+    }
     
     // Update rotation based on keyboard controls when not using mouse drag
     if (!autoRotate) {
@@ -209,11 +264,15 @@ export function PlayerController() {
     if (isMobile) {
       // On mobile, update the orbit controls target to follow the character
       if (orbitControlsRef.current) {
-        orbitControlsRef.current.target.set(
-          characterPosition.x,
-          characterPosition.y + CHARACTER_HEIGHT / 2,
-          characterPosition.z
-        );
+        // We need to handle OrbitControls target differently due to types
+        const controls = orbitControlsRef.current as unknown as { target: THREE.Vector3 };
+        if (controls.target) {
+          controls.target.set(
+            characterPosition.x,
+            characterPosition.y + CHARACTER_HEIGHT / 2,
+            characterPosition.z
+          );
+        }
       }
     } else {
       // Store current camera position and target for smooth transition
@@ -268,8 +327,8 @@ export function PlayerController() {
   
   return (
     <group ref={characterRef} name="character">
-      {/* Optimized 3D Character model */}
-      <HusseinCharacter />
+      {/* Using the enhanced character model with Mixamo animations */}
+      <ModelWithAnimations animation={animationState} />
       
       {/* Interaction indicator when near portal */}
       {isNearPortal && (
@@ -288,7 +347,7 @@ export function PlayerController() {
       {/* Orbit controls for mobile devices only */}
       {isMobile && (
         <OrbitControls 
-          ref={orbitControlsRef}
+          ref={orbitControlsRef as any}
           makeDefault
           target={new THREE.Vector3(
             characterRef.current?.position.x || 0,
