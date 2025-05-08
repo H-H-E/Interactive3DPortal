@@ -1,5 +1,5 @@
 import { Suspense, useEffect } from "react";
-import { Sky, Environment } from "@react-three/drei";
+import { Sky, Environment, useKeyboardControls } from "@react-three/drei";
 import { Ground } from "./Ground";
 import { Lighting } from "./Lighting";
 import { Portal } from "./Portal";
@@ -11,11 +11,17 @@ import { useGame } from "../lib/stores/useGame";
 import { PlayerController } from "./PlayerController";
 import { PortalCamera } from "./PortalCamera";
 import { useIsMobile } from "../hooks/use-is-mobile";
+import type { Controls } from "../hooks/useControls";
+import { useFrame } from "@react-three/fiber";
 
 export default function Game() {
   const { phase, start } = useGame();
-  const { isInPortal, currentScene, setCurrentScene } = usePortals();
+  const { isInPortal, currentScene, setCurrentScene, nearPortal, enterPortal } = usePortals();
   const audio = useAudio();
+  const isMobile = useIsMobile();
+  
+  // Get keyboard controls
+  const [, getKeys] = useKeyboardControls<Controls>();
 
   // Initialize game
   useEffect(() => {
@@ -25,9 +31,13 @@ export default function Game() {
     setCurrentScene("city");
     
     // Add helper text to show controls
-    console.log("Controls: WASD to move, Mouse to look around (hold and drag)");
-    console.log("Press E near portals to interact with them");
-  }, [start, setCurrentScene]);
+    if (isMobile) {
+      console.log("Mobile controls: Use the joystick to move, tap E button to interact");
+    } else {
+      console.log("Controls: WASD to move, drag to rotate camera, click and drag to look around");
+      console.log("Press E near portals to interact with them");
+    }
+  }, [start, setCurrentScene, isMobile]);
   
   // Effect for portal transitions
   useEffect(() => {
@@ -36,6 +46,18 @@ export default function Game() {
       audio.playSuccess();
     }
   }, [isInPortal, audio]);
+  
+  // ADDED: Centralized portal interaction handler
+  useFrame(() => {
+    // Get the current state of the interact key
+    const { interact } = getKeys();
+    
+    // If interact key is pressed and player is near a portal, trigger portal entry
+    if (interact && nearPortal) {
+      console.log(`[Game] Interact key pressed near portal: ${nearPortal.id}`);
+      enterPortal();
+    }
+  });
   
   return (
     <>

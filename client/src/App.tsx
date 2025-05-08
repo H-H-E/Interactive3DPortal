@@ -4,6 +4,7 @@ import { KeyboardControls } from "@react-three/drei";
 import { useAudio } from "./lib/stores/useAudio";
 import { Controls } from "./hooks/useControls";
 import Game from "./components/Game";
+import { MobileControls } from "./components/MobileControls";
 import "@fontsource/inter";
 
 // Define control keys for the game
@@ -12,7 +13,6 @@ const keyMap = [
   { name: Controls.backward, keys: ["ArrowDown", "KeyS"] },
   { name: Controls.leftward, keys: ["ArrowLeft", "KeyA"] },
   { name: Controls.rightward, keys: ["ArrowRight", "KeyD"] },
-  { name: Controls.interact, keys: ["KeyE"] },
   { name: Controls.jump, keys: ["Space"] },
 ];
 
@@ -53,41 +53,28 @@ function App() {
   }, [setBackgroundMusic, setHitSound, setSuccessSound, isMuted]);
 
   return (
-    <>
-      <KeyboardControls map={keyMap}>
-        <Canvas
-          shadows
-          camera={{ position: [0, 2, 10], fov: 50, near: 0.1, far: 1000 }}
-          gl={{ antialias: true, powerPreference: "default" }}
+    <div className="h-screen bg-black">
+      {/* Sound controls */}
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={toggleMute}
+          className="bg-black/30 hover:bg-black/50 text-white rounded-full p-2"
+          aria-label={isMuted ? "Unmute" : "Mute"}
         >
-          <color attach="background" args={["#87CEEB"]} />
-          <fog attach="fog" args={["#87CEEB", 30, 100]} />
-          
-          <Suspense fallback={null}>
-            <Game />
-          </Suspense>
-        </Canvas>
-      </KeyboardControls>
+          {isMuted ? "🔇" : "🔊"}
+        </button>
+      </div>
 
-      {/* Audio toggle button */}
-      <button
-        onClick={toggleMute}
-        style={{
-          position: "absolute",
-          bottom: "20px",
-          right: "20px",
-          padding: "12px",
-          background: "rgba(0, 0, 0, 0.6)",
-          color: "white",
-          borderRadius: "50%",
-          border: "none",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
-        {isMuted ? "🔇" : "🔊"}
-      </button>
-    </>
+      {/* Interactive 3D scene */}
+      <KeyboardControls map={keyMap}>
+        <Canvas shadows camera={{ position: [0, 5, 10], fov: 45 }}>
+          <Game />
+        </Canvas>
+        
+        {/* Add mobile controls outside the Canvas but inside KeyboardControls provider */}
+        <MobileControls />
+      </KeyboardControls>
+    </div>
   );
 }
 
