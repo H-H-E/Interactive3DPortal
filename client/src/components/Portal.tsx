@@ -75,20 +75,11 @@ export function Portal({ id, position, destination, label }: PortalProps) {
     }
   }, [nearPortal, id, enterPortal, setCurrentScene, destination, setIsInPortal, audio]);
   
-  // Handle keyboard interaction
+  // NEW: Automatically enter the portal as soon as the player is close enough.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'e' || e.key === 'E') {
-        if (nearPortal?.id === id) {
-          handleInteract();
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    if (nearPortal?.id === id) {
+      handleInteract();
+    }
   }, [nearPortal, id, handleInteract]);
   
   // Portal animation
@@ -110,7 +101,6 @@ export function Portal({ id, position, destination, label }: PortalProps) {
         return "/textures/grass.png";
       case "beach":
         return "/textures/sand.jpg";
-      case "city":
       default:
         return "/textures/asphalt.png";
     }
@@ -157,7 +147,7 @@ export function Portal({ id, position, destination, label }: PortalProps) {
       {isActive && (
         <SpeechBubble 
           position={[0, 3.5, 0]}
-          content={`Press E to enter ${label}`}
+          content={`Entering ${label}...`}
         />
       )}
     </group>

@@ -74,20 +74,6 @@ export function CharacterController() {
     }
   });
 
-  // Portal interaction
-  useEffect(() => {
-    const checkPortalInteractions = (e: KeyboardEvent) => {
-      if (e.key === 'e' && nearPortal) {
-        console.log("Entering portal:", nearPortal.id);
-        enterPortal();
-      }
-    };
-    window.addEventListener('keydown', checkPortalInteractions);
-    return () => {
-      window.removeEventListener('keydown', checkPortalInteractions);
-    };
-  }, [nearPortal, enterPortal]);
-
   // Portal proximity check
   useEffect(() => {
     const intervalId = setInterval(() => {

@@ -5,7 +5,7 @@ import { useGLTF, useFBX } from '@react-three/drei';
 import { SkeletonUtils } from 'three-stdlib';
 
 // Expanded animation types to match available animations
-type AnimationName = 'idle' | 'walk' | 'run' | 'jump' | 'leftStrafe' | 'leftStrafeWalking' | 'rightStrafe' | 'rightStrafeWalking' | 'leftTurn' | 'leftTurn90' | 'rightTurn' | 'rightTurn90';
+type AnimationName = 'idle' | 'walk' | 'run' | 'jump' | 'leftStrafe' | 'rightStrafe' | 'stand' | 'jumpingDown';
 
 interface ModelProps {
   animation?: AnimationName;
@@ -15,27 +15,23 @@ interface ModelProps {
   [key: string]: unknown; // More specific than 'any'
 }
 
-// Animation file mapping - corrected paths to match your actual file structure
+// Animation file mapping
 const ANIMATION_FILES: Record<AnimationName, string> = {
-  idle: '/animations/huss_animations/idle.fbx',
-  walk: '/animations/huss_animations/walking.fbx',
-  run: '/animations/huss_animations/running.fbx',
-  jump: '/animations/huss_animations/jump.fbx',
-  leftStrafe: '/animations/huss_animations/left strafe.fbx',
-  leftStrafeWalking: '/animations/huss_animations/left strafe walking.fbx',
-  rightStrafe: '/animations/huss_animations/right strafe.fbx',
-  rightStrafeWalking: '/animations/huss_animations/right strafe walking.fbx',
-  leftTurn: '/animations/huss_animations/left turn.fbx',
-  leftTurn90: '/animations/huss_animations/left turn 90.fbx',
-  rightTurn: '/animations/huss_animations/right turn.fbx',
-  rightTurn90: '/animations/huss_animations/right turn 90.fbx'
+  idle: '/animations/locomotion/idle.fbx',
+  walk: '/animations/locomotion/walking.fbx',
+  run: '/animations/locomotion/running.fbx',
+  jump: '/animations/locomotion/jump.fbx',
+  leftStrafe: '/animations/locomotion/left strafe.fbx',
+  rightStrafe: '/animations/locomotion/right strafe.fbx',
+  stand: '/animations/locomotion/stand.fbx',
+  jumpingDown: '/animations/locomotion/jumping-down.fbx'
 };
 
 export function ModelWithAnimations({ animation = 'idle', ...props }: ModelProps) {
   const group = useRef<THREE.Group>(null);
   
-  // Load character model from the correct path
-  const { scene } = useGLTF('/geometries/husseinlopol-transformed.glb');
+  // Load character model
+  const { scene } = useGLTF('/husseinlopol-transformed.glb');
   const clone = React.useMemo(() => SkeletonUtils.clone(scene), [scene]);
   
   // Animation mixer
@@ -49,20 +45,16 @@ export function ModelWithAnimations({ animation = 'idle', ...props }: ModelProps
     run: null,
     jump: null,
     leftStrafe: null,
-    leftStrafeWalking: null,
     rightStrafe: null,
-    rightStrafeWalking: null,
-    leftTurn: null,
-    leftTurn90: null,
-    rightTurn: null,
-    rightTurn90: null
+    stand: null,
+    jumpingDown: null
   });
   
   // Current animation state
   const [currentAnimation, setCurrentAnimation] = useState<AnimationName>(animation);
   const [fadeInProgress, setFadeInProgress] = useState(false);
   
-  // Load FBX animations
+  // Load FBX animations - this will be async
   useEffect(() => {
     let isMounted = true; // Track mounted state to prevent updates after unmount
     
@@ -83,33 +75,48 @@ export function ModelWithAnimations({ animation = 'idle', ...props }: ModelProps
             run: null,
             jump: null,
             leftStrafe: null,
-            leftStrafeWalking: null,
             rightStrafe: null,
-            rightStrafeWalking: null,
-            leftTurn: null,
-            leftTurn90: null,
-            rightTurn: null,
-            rightTurn90: null
+            stand: null,
+            jumpingDown: null
           };
           
-          // Load animations one at a time
-          for (const [name, path] of Object.entries(ANIMATION_FILES)) {
-            try {
-              const fbx = await useFBX(path);
-              if (mixerRef.current && fbx.animations && fbx.animations.length > 0) {
-                const anim = fbx.animations[0];
-                // Fix orientation issues if needed - rotate animation if model is rotated
-                // This helps align the FBX animations with the GLB model orientation
-                
-                const action = mixerRef.current.clipAction(anim);
-                action.clampWhenFinished = true;
-                action.setLoop(THREE.LoopRepeat, Number.POSITIVE_INFINITY);
-                actions[name as AnimationName] = action;
-                console.log(`Loaded animation: ${name}`);
-              }
-            } catch (error) {
-              console.error(`Failed to load ${name} animation:`, error);
+          // Since useFBX is a hook, we can't use it in a loop
+          // Instead, we'll load specific animations one at a time
+          
+          // Load idle animation
+          try {
+            const idleFbx = await useFBX(ANIMATION_FILES.idle);
+            if (mixerRef.current && idleFbx.animations && idleFbx.animations.length > 0) {
+              actions.idle = mixerRef.current.clipAction(idleFbx.animations[0]);
+              actions.idle.clampWhenFinished = true;
+              actions.idle.setLoop(THREE.LoopRepeat, Number.POSITIVE_INFINITY);
             }
+          } catch (error) {
+            console.error('Failed to load idle animation:', error);
+          }
+          
+          // Load walk animation
+          try {
+            const walkFbx = await useFBX(ANIMATION_FILES.walk);
+            if (mixerRef.current && walkFbx.animations && walkFbx.animations.length > 0) {
+              actions.walk = mixerRef.current.clipAction(walkFbx.animations[0]);
+              actions.walk.clampWhenFinished = true;
+              actions.walk.setLoop(THREE.LoopRepeat, Number.POSITIVE_INFINITY);
+            }
+          } catch (error) {
+            console.error('Failed to load walk animation:', error);
+          }
+          
+          // Load run animation
+          try {
+            const runFbx = await useFBX(ANIMATION_FILES.run);
+            if (mixerRef.current && runFbx.animations && runFbx.animations.length > 0) {
+              actions.run = mixerRef.current.clipAction(runFbx.animations[0]);
+              actions.run.clampWhenFinished = true;
+              actions.run.setLoop(THREE.LoopRepeat, Number.POSITIVE_INFINITY);
+            }
+          } catch (error) {
+            console.error('Failed to load run animation:', error);
           }
           
           // Only update state if component is still mounted
@@ -190,16 +197,12 @@ export function ModelWithAnimations({ animation = 'idle', ...props }: ModelProps
     }
   });
   
-  // This rotation helps align the model with the FBX animations
-  // You may need to adjust these values based on how the model is oriented
   return (
     <group ref={group} {...props} dispose={null}>
-      <group rotation={[0, Math.PI, 0]}>
-        <primitive object={clone} />
-      </group>
+      <primitive object={clone} />
     </group>
   );
 }
 
 // Preload the model
-useGLTF.preload('/geometries/husseinlopol-transformed.glb'); 
+useGLTF.preload('/husseinlopol-transformed.glb'); 

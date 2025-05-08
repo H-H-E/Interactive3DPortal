@@ -13,7 +13,6 @@ const keyMap = [
   { name: Controls.backward, keys: ["ArrowDown", "KeyS"] },
   { name: Controls.leftward, keys: ["ArrowLeft", "KeyA"] },
   { name: Controls.rightward, keys: ["ArrowRight", "KeyD"] },
-  { name: Controls.interact, keys: ["KeyE"] },
   { name: Controls.jump, keys: ["Space"] },
 ];
 
