@@ -68,8 +68,10 @@ export const useCharacterControls = (
     // Update rotation
     character.rotation.y = rotation.current;
     
-    // Log for debugging - uncomment when needed
-    // console.log(`Position: ${character.position.x.toFixed(2)}, ${character.position.z.toFixed(2)}, Moving: ${isMoving.current}`);
+    // Debug log for movement status
+    if (Math.random() < 0.01) { // Log rarely to avoid console spam
+      console.log(`[Controls] Position: ${character.position.x.toFixed(2)}, ${character.position.z.toFixed(2)}, Moving: ${isMoving.current}`);
+    }
   });
   
   return {

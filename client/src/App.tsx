@@ -57,6 +57,7 @@ function App() {
       {/* Sound controls */}
       <div className="absolute top-4 right-4 z-10">
         <button
+          type="button"
           onClick={toggleMute}
           className="bg-black/30 hover:bg-black/50 text-white rounded-full p-2"
           aria-label={isMuted ? "Unmute" : "Mute"}
